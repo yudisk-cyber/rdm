@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14324f">
+<title>RDM Atelier · calculs de résistance</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* VOICE: bureau des méthodes, net et sûr de lui
+   IDEA: une fiche de calcul d'atelier — on coche son cas, on remplit, le croquis dit si ça tient
+   PICTURE: le croquis de la pièce chargée, qui se déforme, plastifie ou casse selon les chiffres
+   COLOUR and TYPE: blanc, encre, bleu acier ; vert / orange / rouge réservés à l'état de la pièce ; IBM Plex
+   LAYOUT: liste des cas à gauche, saisie au centre, croquis et résultats à droite ; empilé sur téléphone */
+:root{color-scheme:light dark;
+--bg:light-dark(#eef1f4,#0f1317);--paper:light-dark(#ffffff,#171c22);--ink:light-dark(#141a21,#e6eaef);--mute:light-dark(#5a6573,#98a3b0);
+--line:light-dark(#d8dee5,#28313b);--acc:light-dark(#14558f,#7db4ea);--acc2:light-dark(#e7eff8,#1a2a3b);--steel:light-dark(#a9b6c4,#5c6b7b);
+--ok:light-dark(#1f8a4c,#4cc584);--warn:light-dark(#c77700,#f0a940);--bad:light-dark(#c62f22,#ff6a5a);--okbg:light-dark(#e5f4ea,#173023);--warnbg:light-dark(#fdf1df,#36290f);--badbg:light-dark(#fde7e4,#3b1714)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;overflow-x:clip}
+button,input,select{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:14px;padding:10px max(2vw,14px);background:#14324f;color:#fff;flex-wrap:wrap}
+header h1{margin:0;font-size:20px;font-weight:700}
+header .sub{opacity:.75;font-size:13px;flex:1 1 220px}
+.units{display:flex;gap:6px;align-items:center;font-size:13px}
+.units select{background:rgba(255,255,255,.14);border:0;border-radius:8px;min-height:38px;padding:0 8px;color:#fff}
+.units select option{color:#111}
+.wrap{display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1.15fr);gap:12px;padding:12px max(2vw,14px);align-items:start}
+@media(max-width:1150px){.wrap{grid-template-columns:200px minmax(0,1fr)}.out{grid-column:2}}
+@media(max-width:760px){.wrap{grid-template-columns:minmax(0,1fr)}.out{grid-column:auto}}
+.cases{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px;position:sticky;top:10px;display:flex;flex-direction:column;gap:2px}
+@media(max-width:760px){.cases{position:static;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory}}
+.cases button{display:flex;align-items:center;gap:10px;border:0;background:none;border-radius:9px;padding:8px 10px;min-height:48px;cursor:pointer;text-align:left;color:var(--ink);flex:none;scroll-snap-align:start}
+.cases button svg{width:30px;height:30px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.cases button[aria-current=true]{background:var(--acc2);color:var(--acc);font-weight:600}
+.cases button span small{display:block;font-size:11.5px;color:var(--mute);font-weight:400}
+@media(max-width:760px){.cases button span small{display:none}}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{margin:0 0 4px;font-size:clamp(20px,2.4vw,26px);line-height:1.1}
+.card .lead{color:var(--mute);margin:0 0 10px;font-size:14px}
+h3{font-size:14px;margin:16px 0 8px;color:var(--acc);font-weight:700}
+.seek{background:var(--acc2);border-radius:10px;padding:10px;margin:8px 0 4px}
+.seek label{font-weight:600;font-size:14px}
+.seek select{width:100%;margin-top:6px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:0 10px;font-size:16px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mute)}
+.fld .in{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--paper);overflow:hidden;min-height:44px}
+.fld input,.fld select{border:0;background:none;padding:0 10px;font-size:16px;width:100%;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.fld select{text-align:left}
+.fld .u{display:flex;align-items:center;padding:0 9px;background:var(--bg);color:var(--mute);font-size:13px;white-space:nowrap}
+.fld.unk .in{border-color:var(--acc);border-width:2px;background:var(--acc2)}
+.fld.unk input{font-weight:700;color:var(--acc)}
+.fld.full{grid-column:1/-1}
+.shapes{display:flex;gap:6px;flex-wrap:wrap}
+.shapes button{border:1px solid var(--line);background:var(--paper);border-radius:9px;min-height:44px;min-width:44px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px}
+.shapes button[aria-pressed=true]{border-color:var(--acc);background:var(--acc2);color:var(--acc);font-weight:600}
+.shapes svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+.verdict{border-radius:12px;padding:12px 14px;display:flex;gap:14px;align-items:center;margin-bottom:10px}
+.verdict b{flex:none;font-size:clamp(22px,3vw,30px);line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.verdict .t{font-weight:700;font-size:16px}.verdict .d{font-size:13.5px}
+.v0{background:var(--okbg);color:var(--ok)}.v1{background:var(--warnbg);color:var(--warn)}.v2,.v3,.v4{background:var(--badbg);color:var(--bad)}
+.fig{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.fig svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.gauge{margin:10px 0 4px}
+.gauge .track{position:relative;height:16px;border-radius:8px;background:linear-gradient(90deg,var(--okbg),var(--warnbg) 60%,var(--badbg));border:1px solid var(--line)}
+.gauge .mk{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.gauge .cur{position:absolute;top:-6px;width:14px;height:26px;margin-left:-7px;border-radius:4px;background:var(--acc);border:2px solid var(--paper)}
+.gauge .lab{position:relative;height:30px;font-size:11.5px;color:var(--mute)}
+.gauge .lab span{position:absolute;transform:translateX(-50%);white-space:nowrap;top:6px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+td{padding:6px 4px;border-bottom:1px solid var(--line)}td.n{text-align:right;font:500 14px "IBM Plex Mono",monospace;white-space:nowrap}
+tr.em td{font-weight:700}tr.em td.n{color:var(--acc)}
+.note{font-size:13px;color:var(--mute);margin:8px 0}
+.out .card+.card{margin-top:12px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:9px;min-height:42px;padding:0 14px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none}.toast.on{opacity:1}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+@media(max-width:600px){header .sub{display:none}.fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.sheet{position:fixed;inset:0;background:rgba(10,14,20,.55);z-index:40;overflow-y:auto;padding:18px 12px}
+.sheet[hidden]{display:none}
+.sheet .page{max-width:860px;margin:0 auto;background:var(--paper);border-radius:14px;padding:clamp(16px,3vw,34px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.sheet .bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:860px;margin:0 auto 10px}
+.sheet .bar .btn{background:var(--paper)}
+.sh-h{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:10px;flex-wrap:wrap}
+.sh-h h2{margin:0;font-size:clamp(22px,3vw,30px);line-height:1.1}.sh-h p{margin:4px 0 0;color:var(--mute);font-size:13px}
+.sh-v{border-radius:10px;padding:8px 12px;font-weight:700;text-align:right}.sh-v b{display:block;font-size:24px}
+.sh-fig{margin:14px 0;border:1px solid var(--line);border-radius:10px}.sh-fig svg{display:block;width:100%;height:auto}
+.steps{padding-left:26px;margin:0}.steps li{padding:10px 0;border-bottom:1px solid var(--line);break-inside:avoid}
+.steps h4{margin:0 0 4px;font-size:15.5px}.steps p{margin:0 0 6px;color:var(--mute);font-size:14px}
+.steps .f{font:500 14.5px "IBM Plex Mono",monospace;background:var(--acc2);color:var(--acc);display:inline-block;padding:3px 8px;border-radius:6px}
+.steps .sb{font:14px "IBM Plex Mono",monospace;margin-top:5px;overflow-wrap:anywhere}.steps .sb.plain{font:14px/1.6 "IBM Plex Sans",sans-serif}.steps .rs{font:14.5px "IBM Plex Mono",monospace;margin-top:3px}.steps .rs b{color:var(--ink)}
+body.sheet-open{overflow:hidden}
+@media print{body>*:not(.sheet){display:none!important}.sheet{position:static;background:none;padding:0;overflow:visible}.sheet .bar{display:none}.sheet .page{box-shadow:none;max-width:none;padding:0}body.sheet-open{overflow:visible}}
+</style>
+</head>
+<body>
+<header>
+  <h1>RDM Atelier</h1>
+  <div class="sub">Traction, compression, cisaillement, flexion, torsion et efforts 3D : choisis ton cas, remplis, l'appli trouve ce qui manque.</div>
+  <div class="units"><label for="fu">Forces en</label><select id="fu"><option value="1">N</option><option value="10">daN</option><option value="1000">kN</option></select></div>
+</header>
+<div class="wrap">
+  <nav class="cases" id="cases" aria-label="Cas de calcul"></nav>
+  <section class="card" id="form"></section>
+  <section class="out">
+    <div class="card"><div id="verdict"></div><div class="fig" id="fig"></div><div class="gauge" id="gauge"></div></div>
+    <div class="card"><h3 style="margin-top:0">Résultats</h3><table id="res"></table><div id="notes"></div>
+      <div class="btns"><button class="btn" id="sheetOpen" style="background:var(--acc);color:#fff;border:0;font-weight:600">Feuille de calcul détaillée</button><button class="btn" id="copy">Copier le résumé</button><button class="btn" id="reset">Valeurs par défaut</button></div></div>
+  </section>
+</div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Feuille de calcul détaillée"><div class="bar"><button class="btn" id="sheetPrint">Imprimer / PDF</button><button class="btn" id="sheetCopy">Copier le texte</button><button class="btn" id="sheetClose">Fermer</button></div><div class="page" id="sheetBody"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+{
+/* ================= données ================= */
+const MATS = [
+  ["S235 (acier de construction)", 235, 360, 210, 0.3], ["S275", 275, 430, 210, 0.3], ["S355", 355, 490, 210, 0.3],
+  ["E295 (A50)", 295, 470, 210, 0.3], ["E335 (A60)", 335, 570, 210, 0.3], ["C45 normalisé", 340, 620, 210, 0.3],
+  ["42CrMo4 trempé-revenu", 750, 1000, 210, 0.3], ["Inox 304L", 200, 500, 200, 0.3], ["Inox 316L", 200, 500, 200, 0.3],
+  ["Alu 6060 T6", 150, 190, 69, 0.33], ["Alu 6061 T6", 240, 260, 69, 0.33], ["Alu 5083 H111", 125, 275, 71, 0.33],
+  ["Alu 2017A T4", 260, 390, 72, 0.33], ["Alu 7075 T6", 460, 540, 72, 0.33], ["Fonte EN-GJS-400-15", 250, 400, 169, 0.27],
+  ["Laiton CuZn39Pb3", 250, 400, 100, 0.34], ["Bronze CuSn8", 300, 450, 115, 0.34], ["Titane Ti-6Al-4V", 830, 900, 114, 0.34],
+  ["Vis classe 8.8", 640, 800, 210, 0.3], ["Vis classe 10.9", 900, 1000, 210, 0.3], ["Vis classe 12.9", 1080, 1200, 210, 0.3], ["Vis inox A2-70", 450, 700, 200, 0.3],
+  ["Personnalisé", 235, 360, 210, 0.3]
+];
+const SHAPES = {
+  rond: { n: "Rond plein", dims: ["d"], ico: '<circle cx="12" cy="12" r="8"/>' },
+  tube: { n: "Tube rond", dims: ["D", "e"], ico: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>' },
+  carre: { n: "Carré plein", dims: ["a"], ico: '<rect x="4" y="4" width="16" height="16"/>' },
+  rect: { n: "Rectangle / plat", dims: ["b", "h"], ico: '<rect x="3" y="7" width="18" height="10"/>' },
+  tuber: { n: "Tube rectangulaire", dims: ["B", "H", "e"], ico: '<rect x="3" y="5" width="18" height="14"/><rect x="7" y="9" width="10" height="6"/>' },
+  perso: { n: "Section connue", dims: ["S", "I", "W"], ico: '<path d="M4 6h16M12 6v12M4 18h16"/>' }
+};
+const DIMS = { d: ["Diamètre d", "mm", 20], D: ["Diamètre ext. D", "mm", 40], e: ["Épaisseur e", "mm", 3], a: ["Côté a", "mm", 20], b: ["Largeur b", "mm", 40], h: ["Hauteur h (sens de la charge)", "mm", 10], B: ["Largeur B", "mm", 40], H: ["Hauteur H (sens de la charge)", "mm", 60], S: ["Aire S", "mm²", 300], I: ["Moment quadratique I", "mm⁴", 20000], W: ["Module W = I/v", "mm³", 2000] };
+function section(shape, v) {
+  const P = Math.PI;
+  if (shape === "rond") { const d = v.d; return { S: P * d * d / 4, I: P * d ** 4 / 64, Imin: P * d ** 4 / 64, W: P * d ** 3 / 32, W2: P * d ** 3 / 32, I0: P * d ** 4 / 32, W0: P * d ** 3 / 16, round: true, ok: d > 0 }; }
+  if (shape === "tube") { const D = v.D, d = D - 2 * v.e, I = P * (D ** 4 - d ** 4) / 64; return { S: P * (D * D - d * d) / 4, I, Imin: I, W: I / (D / 2), W2: I / (D / 2), I0: 2 * I, W0: 2 * I / (D / 2), round: true, ok: D > 0 && d >= 0 && v.e > 0 }; }
+  if (shape === "carre") { const a = v.a; return { S: a * a, I: a ** 4 / 12, Imin: a ** 4 / 12, W: a ** 3 / 6, W2: a ** 3 / 6, Wt: a ** 3 / (3 + 1.8), ok: a > 0 }; }
+  if (shape === "rect") { const b = v.b, h = v.h, mn = Math.min(b, h), mx = Math.max(b, h); return { S: b * h, I: b * h ** 3 / 12, Imin: Math.min(b * h ** 3, h * b ** 3) / 12, W: b * h * h / 6, W2: h * b * b / 6, Wt: mx * mn * mn / (3 + 1.8 * mn / mx), ok: b > 0 && h > 0 }; }
+  if (shape === "tuber") { const B = v.B, H = v.H, e = v.e, bi = B - 2 * e, hi = H - 2 * e, I = (B * H ** 3 - bi * hi ** 3) / 12, I2 = (H * B ** 3 - hi * bi ** 3) / 12; return { S: B * H - bi * hi, I, Imin: Math.min(I, I2), W: I / (H / 2), W2: I2 / (B / 2), Wt: 2 * (B - e) * (H - e) * e, ok: bi >= 0 && hi >= 0 && e > 0 }; }
+  return { S: v.S, I: v.I, Imin: v.I, W: v.W, W2: v.W, ok: v.S > 0 && v.I > 0 && v.W > 0 };
+}
+const FIX = [["Articulé – articulé", 1], ["Encastré – libre", 2], ["Encastré – articulé", 0.7], ["Encastré – encastré", 0.5]];
+const BEAMS = [
+  ["Console, charge au bout", "cF"], ["Console, charge répartie", "cq"], ["2 appuis, charge au milieu", "sF"],
+  ["2 appuis, charge décalée", "sFa"], ["2 appuis, charge répartie", "sq"], ["Bi-encastrée, charge au milieu", "eF"], ["Bi-encastrée, charge répartie", "eq"]
+];
+
+/* ================= définition des cas ================= */
+const MAT_FIELDS = [["mat", "Matériau", "sel"], ["Re", "Limite élastique Re", "MPa", 235], ["Rm", "Résistance à la rupture Rm", "MPa", 360], ["E", "Module d'Young E", "GPa", 210], ["s", "Coefficient de sécurité s", "", 2]];
+const CASES = [
+  { id: "traction", n: "Traction", sub: "barre, tirant, élingue", ico: '<path d="M3 12h4M17 12h4M7 8h10v8H7z"/><path d="M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+    lead: "Une barre tirée dans son axe. Contrainte σ = F / S, comparée à Re / s.",
+    fields: [["F", "Effort de traction F", "F", 20000], ["L", "Longueur L", "mm", 1000]], shape: "rond", solv: ["F", "dims", "Re"] },
+  { id: "compression", n: "Compression", sub: "poteau, vérin, entretoise + flambement", ico: '<path d="M12 3v4M12 17v4M8 7h8v10H8z"/><path d="M12 7l-3-3M12 7l3-3M12 17l-3 3M12 17l3 3"/>',
+    lead: "Écrasement σ = F / S et flambement (Euler, ou Johnson pour les pièces trapues).",
+    fields: [["F", "Effort de compression F", "F", 20000], ["L", "Longueur L", "mm", 800], ["fix", "Liaisons aux extrémités", "fix"]], shape: "tube", solv: ["F", "dims", "L", "Re"] },
+  { id: "cisaillement", n: "Cisaillement", sub: "axe, goupille, boulon, rivet", ico: '<path d="M4 9h16M4 15h16"/><path d="M12 4v16" stroke-dasharray="3 2"/>',
+    lead: "Effort perpendiculaire à l'axe : τ = F / (n · k · S), comparé à Rg / s.",
+    fields: [["F", "Effort transmis F", "F", 15000], ["n", "Sections cisaillées par organe", "nsel"], ["k", "Nombre d'organes (boulons…)", "", 1], ["crit", "Résistance au glissement Rg", "crit"]], shape: "rond", solv: ["F", "dims", "k", "Re"] },
+  { id: "flexion", n: "Flexion", sub: "poutre, console, potence", ico: '<path d="M3 9h18"/><path d="M3 9c6 6 12 6 18 0" stroke-dasharray="3 2"/><path d="M12 3v5"/>',
+    lead: "Place les charges où tu veux sur la poutre : une charge ponctuelle et/ou une charge répartie (constante ou qui varie). σ = Mf / W au point le plus chargé, plus la flèche.",
+    fields: [["sup", "Appuis", "sup"], ["L", "Portée L", "mm", 1000], ["F", "Charge ponctuelle F (0 = aucune)", "F", 2000], ["pa", "Position de F (depuis la gauche)", "mm", 1000], ["q1", "Charge répartie au début q₁", "q", 0], ["q2", "Charge répartie à la fin q₂", "q", 0], ["x1", "Début de la charge répartie", "mm", 0], ["x2", "Fin de la charge répartie", "mm", 1000], ["fl", "Flèche admissible L /", "", 250]], shape: "rect", dimsDef: { b: 40, h: 60 }, solv: ["F", "qs", "dims", "L", "Re"] },
+  { id: "torsion", n: "Torsion", sub: "arbre, axe moteur, clé", ico: '<path d="M3 12h18"/><path d="M6 7a5 5 0 0 0 0 10M18 7a5 5 0 0 1 0 10"/>',
+    lead: "τ = C / W₀ et angle de torsion θ = C·L / (G·I₀). Couple direct ou puissance + vitesse.",
+    fields: [["mode", "Je connais", "tmode"], ["C", "Couple C", "Nm", 200], ["P", "Puissance P", "kW", 7.5], ["N", "Vitesse de rotation N", "tr/min", 1450], ["L", "Longueur de l'arbre L", "mm", 500], ["crit", "Résistance au glissement Rg", "crit"], ["th", "Angle admissible (0 = ignoré)", "°/m", 0]], shape: "rond", round: true, dimsDef: { d: 35 }, solv: ["C", "P", "dims", "Re"] },
+  { id: "efforts3d", n: "Force 3D", sub: "force quelconque sur un bras encastré", ico: '<path d="M4 20V6M4 20h14M4 20l9-7"/><path d="M13 13l7-7M20 6h-4M20 6v4"/>',
+    lead: "Une force dans l'espace appliquée au bout d'un bras encastré. L'appli la décompose sur x, y, z, calcule les efforts à l'encastrement et la contrainte équivalente.",
+    fields: [["L", "Longueur du bras (axe x)", "mm", 400], ["oy", "Décalage du point d'appui en y", "mm", 0], ["oz", "Décalage du point d'appui en z", "mm", 80], ["F", "Force F", "F", 1500], ["al", "Angle dans le plan horizontal (depuis x)", "°", 90], ["be", "Angle de la force avec l'horizontale", "°", -60], ["crit", "Critère", "crit3"]], shape: "rond", dimsDef: { d: 40 }, solv: ["F", "dims", "L", "Re"] }
+];
+
+/* ================= état ================= */
+const KEY = "rdm-atelier-v1";
+let fu = 1, cur = "traction", ST = {};
+function defState(c) {
+  const v = { mat: 0, Re: 235, Rm: 360, E: 210, s: 2, shape: c.shape, unk: "none" };
+  c.fields.forEach(f => { if (f[3] !== undefined) v[f[0]] = f[3]; });
+  Object.keys(DIMS).forEach(k => v[k] = DIMS[k][2]);
+  Object.assign(v, c.dimsDef || {});
+  v.fix = 0; v.n = 1; v.crit = 0; v.cas = 0; v.mode = 0; v.sup = 0; v.qs = 1;
+  if (c.id === "compression") { v.D = 40; v.e = 3; }
+  return v;
+}
+try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); ST = o.ST || {}; fu = o.fu || 1; cur = o.cur || cur; } catch (e) {}
+CASES.forEach(c => { ST[c.id] = Object.assign(defState(c), ST[c.id] || {}); });
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ST, fu, cur })); } catch (e) {} };
+const caseOf = id => CASES.find(c => c.id === id);
+const $ = id => document.getElementById(id);
+const nf = (v, d = 3) => { if (!isFinite(v)) return "—"; const a = Math.abs(v); const s = a >= 1e5 ? v.toFixed(0) : a >= 100 ? v.toFixed(1) : a >= 1 ? v.toPrecision(d + 1) : a > 0 ? v.toPrecision(d) : "0"; return (+s).toLocaleString("fr-FR", { maximumFractionDigits: 4 }); };
+const fuName = () => ({ 1: "N", 10: "daN", 1000: "kN" }[fu]);
+let tt; const toast = m => { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2200); };
+
+/* ================= calculs ================= */
+const LEVEL_TXT = [["Ça tient", "Contrainte sous la limite admissible."], ["Ça tient, mais c'est juste", "Plus de 80 % de la limite admissible."], ["Coefficient de sécurité non respecté", "La pièce ne casse pas, mais la marge demandée n'y est pas."], ["Déformation permanente", "La limite élastique est dépassée : la pièce se déforme et ne revient pas."], ["Rupture", "La pièce casse."]];
+function levelFrom(util, sig, Re, Rm) {
+  if (sig >= Rm) return 4;
+  if (sig >= Re) return 3;
+  if (util > 1 + 1e-6) return 2;
+  return util > 0.8 ? 1 : 0;
+}
+/* poutre : superposition des formules classiques, charge répartie découpée en 200 petites charges */
+const SUPS = ["Console (encastrée à gauche)", "2 appuis simples", "Bi-encastrée"];
+function beamSolve(v, E, I) {
+  const L = Math.max(v.L, 1e-6), sup = +v.sup || 0, cl = x => Math.min(Math.max(x, 0), L), m = v.qs === undefined ? 1 : v.qs;
+  const F = (v.F || 0) * fu, a = cl(v.pa), q1 = (v.q1 || 0) * fu / 1000 * m, q2 = (v.q2 || 0) * fu / 1000 * m;
+  const x1 = cl(Math.min(v.x1, v.x2)), x2 = cl(Math.max(v.x1, v.x2));
+  const loads = [];
+  if (F) loads.push([F, a]);
+  const Fq = (q1 || q2) && x2 > x1 ? (q1 + q2) / 2 * (x2 - x1) : 0;
+  if (Fq) { const n = 200, dx = (x2 - x1) / n; for (let i = 0; i < n; i++) { const xc = x1 + (i + 0.5) * dx; loads.push([(q1 + (q2 - q1) * (xc - x1) / (x2 - x1)) * dx, xc]); } }
+  const NP = 240, xs = [], M = new Array(NP + 1).fill(0), Y = new Array(NP + 1).fill(0), T = new Array(NP + 1).fill(0);
+  for (let i = 0; i <= NP; i++) xs.push(L * i / NP);
+  let RA = 0, RB = 0, MA = 0, MB = 0;
+  const EI = E * I;
+  for (const [P, p] of loads) {
+    const b = L - p;
+    if (sup === 0) {
+      RA += P; MA += P * p;
+      for (let i = 0; i <= NP; i++) { const x = xs[i]; M[i] += x < p ? -P * (p - x) : 0; Y[i] += x <= p ? P * x * x * (3 * p - x) / (6 * EI) : P * p * p * (3 * x - p) / (6 * EI); T[i] += x < p ? P : 0; }
+    } else if (sup === 1) {
+      const ra = P * b / L, rb = P * p / L; RA += ra; RB += rb;
+      for (let i = 0; i <= NP; i++) { const x = xs[i]; M[i] += x <= p ? ra * x : rb * (L - x); Y[i] += x <= p ? P * b * x * (L * L - b * b - x * x) / (6 * EI * L) : P * p * (L - x) * (L * L - p * p - (L - x) ** 2) / (6 * EI * L); T[i] += x < p ? ra : -rb; }
+    } else {
+      const ma = P * p * b * b / (L * L), mb = P * p * p * b / (L * L), ra = P * b * b * (3 * p + b) / L ** 3, rb = P * p * p * (p + 3 * b) / L ** 3;
+      RA += ra; RB += rb; MA += ma; MB += mb;
+      for (let i = 0; i <= NP; i++) { const x = xs[i], u = L - x; M[i] += -ma + ra * x - (x > p ? P * (x - p) : 0); Y[i] += x <= p ? P * b * b * x * x * (3 * p * L - (3 * p + b) * x) / (6 * EI * L ** 3) : P * p * p * u * u * (3 * b * L - (3 * b + p) * u) / (6 * EI * L ** 3); T[i] += x < p ? ra : -rb; }
+    }
+  }
+  let Mmax = 0, iM = 0, fmax = 0, iF = 0, Tmax = 0;
+  for (let i = 0; i <= NP; i++) { if (Math.abs(M[i]) > Mmax) { Mmax = Math.abs(M[i]); iM = i; } if (Math.abs(Y[i]) > fmax) { fmax = Math.abs(Y[i]); iF = i; } Tmax = Math.max(Tmax, Math.abs(T[i])); }
+  if (sup === 0) Mmax = Math.max(Mmax, MA);
+  if (sup === 2) { if (MA > Mmax) { Mmax = MA; iM = 0; } if (MB > Mmax) { Mmax = MB; iM = NP; } }
+  return { sup, L, F, a, q1, q2, x1, x2, Fq, Ftot: F + Fq, RA, RB, MA, MB, xs, M, Y, Mmax, xM: xs[iM], fmax, xf: xs[iF], Tmax };
+}
+function compute(c, v) {
+  const sec = section(v.shape, v), Re = v.Re, Rm = v.Rm, E = v.E * 1000, s = v.s, F = (v.F || 0) * fu;
+  const rows = [], notes = [];
+  let util = 0, sig = 0, lvl = 0, fig = {}, mode = "";
+  const Rpe = Re / s;
+  if (!sec.ok) return { bad: "Dimensions de section impossibles (épaisseur trop grande ?)." };
+  rows.push(["Aire de la section S", sec.S, "mm²"]);
+  if (c.id === "traction") {
+    sig = F / sec.S; util = sig / Rpe; lvl = levelFrom(util, sig, Re, Rm);
+    const dL = F * v.L / (E * sec.S);
+    rows.push(["Contrainte σ = F / S", sig, "MPa", 1], ["Contrainte admissible Re / s", Rpe, "MPa"], ["Coefficient de sécurité réel", Re / sig, ""],
+      ["Effort maxi admissible", Rpe * sec.S / fu, fuName(), 1], ["Effort de début de déformation (Re·S)", Re * sec.S / fu, fuName()], ["Effort de rupture (Rm·S)", Rm * sec.S / fu, fuName()],
+      ["Allongement ΔL = F·L / (E·S)", dL, "mm"], ["Allongement relatif ε", dL / v.L * 100, "%"]);
+    fig = { sig, lvl };
+  }
+  if (c.id === "compression") {
+    const K = FIX[v.fix][1], Lf = K * v.L, i = Math.sqrt(sec.Imin / sec.S), lam = Lf / i, lamC = Math.PI * Math.sqrt(2 * E / Re);
+    let Fcr, meth;
+    if (lam >= lamC) { Fcr = Math.PI ** 2 * E * sec.Imin / (Lf * Lf); meth = "Euler"; }
+    else { Fcr = sec.S * (Re - Re * Re * lam * lam / (4 * Math.PI ** 2 * E)); meth = "Johnson, pièce trapue"; }
+    sig = F / sec.S;
+    const uC = sig / Rpe, uF = F / (Fcr / s);
+    util = Math.max(uC, uF);
+    mode = uF > uC ? "flambement" : "écrasement";
+    lvl = levelFrom(util, sig, Re, Rm);
+    if (F >= Fcr) lvl = 4;
+    rows.push(["Contrainte σ = F / S", sig, "MPa", 1], ["Longueur de flambement Lf = K·L", Lf, "mm"], ["Rayon de giration i = √(I / S)", i, "mm"], ["Élancement λ = Lf / i", lam, ""], ["Élancement critique λc", lamC, ""],
+      ["Charge critique de flambement (" + meth + ")", Fcr / fu, fuName(), 1], ["Effort maxi admissible (flambement)", Fcr / s / fu, fuName()], ["Effort maxi admissible (écrasement)", Rpe * sec.S / fu, fuName()],
+      ["Coefficient de sécurité réel", Math.min(Re / sig, Fcr / F), ""]);
+    notes.push(`Critère dimensionnant : <b>${mode}</b>.`);
+    if (lam > 200) notes.push("Élancement supérieur à 200 : pièce très souple, à éviter en construction.");
+    fig = { lvl, K, mode, uF: F / Fcr };
+  }
+  if (c.id === "cisaillement") {
+    const nn = +v.n, k = Math.max(1, Math.round(v.k)), Rg = (v.crit == 1 ? 0.577 : 0.5) * Re, Rpg = Rg / s;
+    const tau = F / (nn * k * sec.S);
+    sig = tau; util = tau / Rpg;
+    lvl = tau >= 0.6 * Rm ? 4 : tau >= Rg ? 3 : util > 1 ? 2 : util > 0.8 ? 1 : 0;
+    rows.push(["Contrainte de cisaillement τ", tau, "MPa", 1], ["Résistance au glissement Rg", Rg, "MPa"], ["Contrainte admissible Rg / s", Rpg, "MPa"], ["Coefficient de sécurité réel", Rg / tau, ""],
+      ["Effort maxi admissible", Rpg * nn * k * sec.S / fu, fuName(), 1], ["Effort de rupture estimé (τ ≈ 0,6·Rm)", 0.6 * Rm * nn * k * sec.S / fu, fuName()]);
+    notes.push("Pense aussi au matage (pression sur le trou) et à la tôle elle-même : non calculés ici.");
+    fig = { lvl, n: nn, k };
+  }
+  if (c.id === "flexion") {
+    const B = beamSolve(v, E, sec.I);
+    if (!B.Ftot) return { bad: "Aucune charge : mets une charge ponctuelle F ou une charge répartie." };
+    sig = B.Mmax / sec.W; const fadm = v.fl > 0 ? v.L / v.fl : Infinity;
+    util = sig / Rpe; lvl = levelFrom(util, sig, Re, Rm);
+    rows.push(["Charge totale sur la poutre", B.Ftot / fu, fuName()]);
+    if (B.sup === 0) rows.push(["Réaction à l'encastrement", B.RA / fu, fuName()], ["Moment d'encastrement", B.MA / 1000, "N·m"]);
+    else rows.push(["Réaction en A (gauche)", B.RA / fu, fuName()], ["Réaction en B (droite)", B.RB / fu, fuName()]);
+    if (B.sup === 2) rows.push(["Moments d'encastrement A / B", B.MA / 1000, "N·m"], ["", B.MB / 1000, "N·m"]);
+    rows.push(["Moment fléchissant maxi Mf", B.Mmax / 1000, "N·m", 1], ["Position du moment maxi", B.xM, "mm"], ["Effort tranchant maxi T", B.Tmax / fu, fuName()],
+      ["Moment quadratique I", sec.I, "mm⁴"], ["Module de flexion W = I / v", sec.W, "mm³"], ["Contrainte de flexion σ = Mf / W", sig, "MPa", 1], ["Contrainte admissible Re / s", Rpe, "MPa"], ["Coefficient de sécurité réel", Re / sig, ""]);
+    if (B.Fq) rows.push(["Charges maxi : multiplier toutes les charges par", 1 / util, "", 1]);
+    else rows.push(["Charge F maxi admissible", B.F / util / fu, fuName(), 1]);
+    rows.push(["Flèche maxi", B.fmax, "mm", 1], ["Position de la flèche maxi", B.xf, "mm"]);
+    if (isFinite(fadm)) { rows.push(["Flèche admissible L / " + v.fl, fadm, "mm"]); if (B.fmax > fadm) notes.push(`La flèche dépasse L / ${v.fl} : la poutre tient mais plie trop. Augmente la hauteur de la section.`); }
+    rows.push(["Cisaillement moyen T / S", B.Tmax / sec.S, "MPa"]);
+    fig = { lvl, B };
+  }
+  if (c.id === "torsion") {
+    const C = v.mode == 1 ? (v.P * 1000) / (2 * Math.PI * v.N / 60) * 1000 : v.C * 1000;
+    if (!sec.round) return { bad: "La torsion est calculée pour les arbres ronds (plein ou tube)." };
+    const Rg = (v.crit == 1 ? 0.577 : 0.5) * Re, Rpg = Rg / s, tau = C / sec.W0, G = E / (2 * (1 + v.nu)), th = C * v.L / (G * sec.I0), thm = th / v.L * 1000 * 180 / Math.PI;
+    sig = tau; util = tau / Rpg;
+    const uA = v.th > 0 ? thm / v.th : 0;
+    lvl = tau >= 0.6 * Rm ? 4 : tau >= Rg ? 3 : Math.max(util, uA) > 1 ? 2 : Math.max(util, uA) > 0.8 ? 1 : 0;
+    if (v.mode == 1) rows.push(["Couple transmis C = P / ω", C / 1000, "N·m", 1]);
+    rows.push(["Contrainte de torsion τ = C / W₀", tau, "MPa", 1], ["Résistance au glissement Rg", Rg, "MPa"], ["Contrainte admissible Rg / s", Rpg, "MPa"], ["Coefficient de sécurité réel", Rg / tau, ""],
+      ["Couple maxi admissible", Rpg * sec.W0 / 1000, "N·m", 1], ["Module de torsion G", G / 1000, "GPa"], ["Angle de torsion total", th * 180 / Math.PI, "°"], ["Angle par mètre", thm, "°/m"]);
+    if (v.mode == 1) rows.push(["Puissance maxi transmissible", Rpg * sec.W0 / 1000 * 2 * Math.PI * v.N / 60 / 1000, "kW"]);
+    if (uA > 1) notes.push(`L'arbre se tord de ${nf(thm)} °/m, au-delà des ${v.th} °/m demandés : il tient mais manque de raideur.`);
+    util = Math.max(util, uA);
+    fig = { lvl, th: th * 180 / Math.PI };
+  }
+  if (c.id === "efforts3d") {
+    const al = v.al * Math.PI / 180, be = v.be * Math.PI / 180;
+    const Fx = F * Math.cos(be) * Math.cos(al), Fy = F * Math.cos(be) * Math.sin(al), Fz = F * Math.sin(be);
+    const x = v.L, y = v.oy, z = v.oz;
+    // moments à l'encastrement (origine) de la force appliquée en (x, y, z) : M = r ∧ F
+    const Mx = y * Fz - z * Fy, My = z * Fx - x * Fz, Mz = x * Fy - y * Fx;
+    let sN = Fx / sec.S, sM, tau;
+    if (sec.round) { sM = Math.hypot(My, Mz) / sec.W; tau = sec.W0 ? Math.abs(Mx) / sec.W0 : 0; }
+    else { sM = Math.abs(Mz) / sec.W + Math.abs(My) / sec.W2; tau = sec.Wt ? Math.abs(Mx) / sec.Wt : 0; if (!sec.Wt && Mx) notes.push("Torsion non calculable pour une section saisie à la main."); }
+    const sigx = Math.abs(sN) + sM;
+    const eq = v.crit == 1 ? Math.sqrt(sigx * sigx + 4 * tau * tau) : Math.sqrt(sigx * sigx + 3 * tau * tau);
+    sig = eq; util = eq / Rpe; lvl = levelFrom(util, eq, Re, Rm);
+    const fs = fuName(), k = fu;
+    rows.push(["Composante Fx (axe du bras)", Fx / k, fs], ["Composante Fy", Fy / k, fs], ["Composante Fz", Fz / k, fs],
+      ["Effort normal N = Fx", Fx / k, fs], ["Efforts tranchants Ty / Tz", Fy / k, fs], ["", Fz / k, fs],
+      ["Moment de torsion Mt = Mx", Mx / 1000, "N·m", 1], ["Moment de flexion My", My / 1000, "N·m", 1], ["Moment de flexion Mz", Mz / 1000, "N·m", 1],
+      ["Contrainte normale N / S", sN, "MPa"], ["Contrainte de flexion", sM, "MPa"], ["Contrainte de torsion τ", tau, "MPa"],
+      ["Contrainte équivalente (" + (v.crit == 1 ? "Tresca" : "Von Mises") + ")", eq, "MPa", 1], ["Contrainte admissible Re / s", Rpe, "MPa"], ["Coefficient de sécurité réel", Re / eq, ""],
+      ["Force maxi admissible (même direction)", F / util / fu, fs, 1]);
+    notes.push("Point le plus chargé : à l'encastrement, sur la fibre extérieure. Repère : x le long du bras, y horizontal, z vertical vers le haut.");
+    fig = { lvl, Fx, Fy, Fz, x, y, z, Mx, My, Mz };
+  }
+  return { rows, notes, util, sig, lvl, fig, Re, Rm, Rpe, sec, mode };
+}
+
+/* ================= solveur de l'inconnue ================= */
+function solve(c, v, key) {
+  const f = x => { const w = { ...v, [key]: x }; const r = compute(c, w); return r.bad ? NaN : r.util - 1; };
+  const x0 = Math.max(Math.abs(v[key]) || 1, 1e-3);
+  let lo = null, hi = null, prev = null, px = null;
+  for (let k = -60; k <= 60; k++) {
+    const x = x0 * Math.pow(10, k / 12), y = f(x);
+    if (!isFinite(y)) { prev = null; continue; }
+    if (prev !== null && Math.sign(y) !== Math.sign(prev)) { lo = px; hi = x; break; }
+    prev = y; px = x;
+  }
+  if (lo === null) return null;
+  let a = lo, b = hi, fa = f(a);
+  for (let i = 0; i < 80; i++) { const m = (a + b) / 2, fm = f(m); if (Math.sign(fm) === Math.sign(fa)) { a = m; fa = fm; } else b = m; }
+  return (a + b) / 2;
+}
+const UNK_LAB = { qs: "Charge répartie maxi (q₁ et q₂ ensemble)", F: "Effort maxi admissible", C: "Couple maxi admissible", P: "Puissance maxi admissible", L: "Longueur maxi", k: "Nombre d'organes nécessaire", Re: "Limite élastique Re mini (choix du matériau)" };
+
+/* ================= rendu du formulaire ================= */
+function renderCases() {
+  $("cases").innerHTML = CASES.map(c => `<button data-c="${c.id}" aria-current="${c.id === cur}"><svg viewBox="0 0 24 24" aria-hidden="true">${c.ico}</svg><span>${c.n}<small>${c.sub}</small></span></button>`).join("");
+}
+function fldHTML(id, lab, unit, val, unk, extra) {
+  const u = unit === "F" ? fuName() : unit === "q" ? fuName() + "/m" : unit;
+  return `<label class="fld${unk ? " unk" : ""}">${lab}<span class="in"><input id="f-${id}" data-k="${id}" inputmode="decimal" value="${unk ? "à trouver" : nf(val, 5).replace(/\s/g, "")}" ${unk ? "readonly" : ""}>${u ? `<span class="u">${u}</span>` : ""}</span></label>`;
+}
+function selHTML(id, lab, opts, val, cls) { return `<label class="fld${cls ? " " + cls : ""}">${lab}<span class="in"><select data-k="${id}">${opts.map((o, i) => `<option value="${i}" ${i == val ? "selected" : ""}>${o}</option>`).join("")}</select></span></label>`; }
+function renderForm() {
+  const c = caseOf(cur), v = ST[cur];
+  const dims = SHAPES[v.shape].dims;
+  const unkOpts = [["none", "Rien : je vérifie ma pièce"]];
+  c.solv.forEach(s => {
+    if (s === "dims") dims.forEach(d => { if (!(v.shape === "perso")) unkOpts.push([d, DIMS[d][0].split(" (")[0] + " mini"]); });
+    else if (s === "C" && v.mode == 1) return; else if (s === "P" && v.mode != 1) return;
+    else unkOpts.push([s, UNK_LAB[s]]);
+  });
+  if (!unkOpts.some(o => o[0] === v.unk)) v.unk = "none";
+  let h = `<h2>${c.n}</h2><p class="lead">${c.lead}</p>`;
+  h += `<div class="seek"><label for="unk">Ce que je cherche</label><select id="unk">${unkOpts.map(([k, t]) => `<option value="${k}" ${k === v.unk ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+  h += `<h3>Chargement</h3><div class="fields">`;
+  for (const [id, lab, unit] of c.fields) {
+    if (unit === "fix") h += selHTML("fix", lab, FIX.map(x => x[0]), v.fix, "full");
+    else if (unit === "nsel") h += selHTML("n", lab, ["1 (cisaillement simple)", "2 (cisaillement double)"].map(x => x), v.n - 1, "nsel");
+    else if (unit === "crit") h += selHTML("crit", lab, ["Rg = 0,5 · Re (Tresca, prudent)", "Rg = 0,577 · Re (Von Mises)"], v.crit, "full");
+    else if (unit === "crit3") h += selHTML("crit", lab, ["Von Mises", "Tresca (plus prudent)"], v.crit, "full");
+    else if (unit === "sup") h += selHTML("sup", lab, SUPS, v.sup, "full");
+    else if (unit === "tmode") h += selHTML("mode", lab, ["Le couple", "La puissance et la vitesse"], v.mode, "full");
+    else {
+      if (c.id === "torsion" && ((id === "C" && v.mode == 1) || ((id === "P" || id === "N") && v.mode != 1))) continue;
+      h += fldHTML(id, lab, unit, v[id], v.unk === id);
+      if (c.id === "flexion" && id === "pa") h += `<label class="fld full">Glisser la charge F le long de la poutre (ou tire-la sur le schéma)<input type="range" id="r-a" data-k="pa" min="0" max="${v.L}" step="${Math.max(1, v.L / 200)}" value="${Math.min(v.pa, v.L)}" style="accent-color:var(--acc);height:34px"></label>`;
+    }
+  }
+  h += `</div><h3>Section</h3><div class="shapes" role="group" aria-label="Forme de section">${Object.entries(SHAPES).filter(([k]) => !c.round || k === "rond" || k === "tube").map(([k, s]) => `<button data-shape="${k}" aria-pressed="${k === v.shape}"><svg viewBox="0 0 24 24" aria-hidden="true">${s.ico}</svg>${s.n}</button>`).join("")}</div>`;
+  h += `<div class="fields" style="margin-top:8px">${dims.map(d => fldHTML(d, DIMS[d][0], DIMS[d][1], v[d], v.unk === d)).join("")}</div>`;
+  h += `<h3>Matériau</h3><div class="fields">${selHTML("mat", "Nuance", MATS.map(m => m[0]), v.mat, "full")}`;
+  h += fldHTML("Re", "Limite élastique Re", "MPa", v.Re, v.unk === "Re") + fldHTML("Rm", "Rupture Rm", "MPa", v.Rm, false) + fldHTML("E", "Module d'Young E", "GPa", v.E, false) + fldHTML("s", "Coefficient de sécurité s", "", v.s, false) + `</div>`;
+  h += `<p class="note">Valeurs matière typiques : vérifie la fiche de ta nuance et de ton état (laminé, trempé…). Coefficient de sécurité courant : 1,5 à 3 en mécanique, plus en levage.</p>`;
+  $("form").innerHTML = h;
+}
+
+/* ================= schémas ================= */
+const COL = l => ["var(--ok)", "var(--warn)", "var(--bad)", "var(--bad)", "var(--bad)"][l];
+const arrow = (x1, y1, x2, y2, col, w = 3) => { const a = Math.atan2(y2 - y1, x2 - x1), s = 9 + w * 1.5; return `<line x1="${x1}" y1="${y1}" x2="${x2 - Math.cos(a) * s * 0.8}" y2="${y2 - Math.sin(a) * s * 0.8}" stroke="${col}" stroke-width="${w}"/><path d="M${x2} ${y2} L${x2 - Math.cos(a - 0.4) * s} ${y2 - Math.sin(a - 0.4) * s} L${x2 - Math.cos(a + 0.4) * s} ${y2 - Math.sin(a + 0.4) * s}Z" fill="${col}"/>`; };
+const hatch = (x, y, w, h, vert) => { let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--steel)" opacity=".35"/>`; for (let k = 0; k < (vert ? h : w); k += 9) s += vert ? `<line x1="${x}" y1="${y + k}" x2="${x + w}" y2="${y + k + w}" stroke="var(--mute)" stroke-width="1"/>` : `<line x1="${x + k}" y1="${y}" x2="${x + k + h}" y2="${y + h}" stroke="var(--mute)" stroke-width="1"/>`; return s; };
+const txt = (x, y, t, o = {}) => `<text x="${x}" y="${y}" font-size="${o.s || 14}" fill="${o.c || "var(--ink)"}" text-anchor="${o.a || "middle"}" font-weight="${o.w || 500}" font-family="IBM Plex Sans,sans-serif">${t}</text>`;
+function figure(c, r, v) {
+  const L = r.lvl, col = COL(L), W = 640, H = 340;
+  let s = "";
+  const F = v.F, fn = fuName();
+  if (c.id === "traction") {
+    const y = 170, x1 = 150, x2 = 490, t = 26;
+    if (L < 3) s += `<rect x="${x1}" y="${y - t}" width="${x2 - x1}" height="${2 * t}" rx="4" fill="${col}" opacity=".25" stroke="${col}" stroke-width="2"/>`;
+    else if (L === 3) s += `<path d="M${x1} ${y - t} H290 Q320 ${y - t + 14} 350 ${y - t} H${x2} V${y + t} H350 Q320 ${y + t - 14} 290 ${y + t} H${x1}Z" fill="${col}" opacity=".25" stroke="${col}" stroke-width="2"/>` + txt(320, y - t - 12, "striction", { c: col, s: 13 });
+    else s += `<path d="M${x1} ${y - t} H290 Q305 ${y - t + 16} 312 ${y - 6} L306 ${y} L313 ${y + 6} Q305 ${y + t - 16} 290 ${y + t} H${x1}Z" fill="${col}" opacity=".3" stroke="${col}" stroke-width="2"/><path d="M${x2} ${y - t} H352 Q337 ${y - t + 16} 330 ${y - 6} L336 ${y} L329 ${y + 6} Q337 ${y + t - 16} 352 ${y + t} H${x2}Z" fill="${col}" opacity=".3" stroke="${col}" stroke-width="2"/>` + txt(321, y - t - 12, "rupture", { c: col, s: 14, w: 700 });
+    s += arrow(x1, y, 50, y, "var(--acc)", 4) + arrow(x2, y, 590, y, "var(--acc)", 4) + txt(70, y - 14, `F = ${nf(F)} ${fn}`, { a: "start", s: 13 }) + txt(570, y - 14, "F", { s: 13 });
+    s += `<line x1="${x1}" y1="${y + t + 30}" x2="${x2}" y2="${y + t + 30}" stroke="var(--mute)"/>` + txt((x1 + x2) / 2, y + t + 50, `L = ${nf(v.L)} mm`, { c: "var(--mute)", s: 13 });
+    s += txt(320, y + 5, `σ = ${nf(r.sig)} MPa`, { w: 700 });
+  }
+  if (c.id === "compression") {
+    const x = 320, y1 = 60, y2 = 290, t = 18, K = r.fig.K, buck = r.fig.mode === "flambement";
+    const amp = Math.min(70, 6 + r.fig.uF * (L >= 3 && buck ? 60 : 18));
+    const shape = u => K === 1 ? Math.sin(Math.PI * u) : K === 2 ? 1 - Math.cos(Math.PI / 2 * (1 - u)) : K === 0.5 ? (1 - Math.cos(2 * Math.PI * u)) / 2 : Math.sin(Math.PI * (1 - u)) * (1 - u) * 1.7;
+    let path = "", path2 = "";
+    for (let k = 0; k <= 30; k++) { const u = k / 30, yy = y1 + (y2 - y1) * u, dx = shape(u) * amp; path += `${k ? "L" : "M"}${x + dx - t} ${yy} `; path2 = `L${x + dx + t} ${yy} ` + path2; }
+    if (buck || L < 3) s += `<path d="${path}${path2.replace(/^L/, "L")}Z" fill="${col}" opacity=".25" stroke="${col}" stroke-width="2"/>`;
+    else s += `<path d="M${x - t} ${y1} Q${x - t - 22} ${(y1 + y2) / 2} ${x - t} ${y2} H${x + t} Q${x + t + 22} ${(y1 + y2) / 2} ${x + t} ${y1}Z" fill="${col}" opacity=".25" stroke="${col}" stroke-width="2"/>`;
+    s += `<rect x="${x - t}" y="${y1}" width="${2 * t}" height="${y2 - y1}" fill="none" stroke="var(--mute)" stroke-dasharray="5 4"/>`;
+    const fixTxt = FIX[v.fix][0].split(" – ");
+    const sym = (yy, typ, top) => typ === "Encastré" ? hatch(x - 50, top ? yy - 16 : yy, 100, 16, false) : `<path d="M${x} ${yy} l-16 ${top ? -20 : 20} h32z" fill="none" stroke="var(--ink)" stroke-width="2"/><circle cx="${x}" cy="${yy}" r="5" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>`;
+    s += sym(y2, fixTxt[0], false);
+    if (fixTxt[1] !== "libre") s += sym(y1, fixTxt[1], true);
+    const topx = x + shape(0) * amp;
+    s += arrow(topx, 10, topx, y1 - (fixTxt[1] === "Encastré" ? 18 : 4), "var(--acc)", 4) + txt(topx + 16, 30, `F = ${nf(F)} ${fn}`, { a: "start", s: 13 });
+    s += txt(470, 170, buck ? (L >= 3 ? "flambement" : "risque : flambement") : (L >= 3 ? "écrasement" : "risque : écrasement"), { c: col, w: 700, a: "start" });
+    s += txt(470, 192, `σ = ${nf(r.sig)} MPa`, { a: "start", s: 13 });
+  }
+  if (c.id === "cisaillement") {
+    const dbl = r.fig.n === 2, broke = L >= 4, off = broke ? 18 : L === 3 ? 6 : 0;
+    const plates = dbl ? [[90, 0], [140, 1], [190, 0]] : [[110, 0], [170, 1]];
+    plates.forEach(([y, mv]) => { const dx = mv ? off : 0; s += `<rect x="${110 + (mv ? 120 : 0) + dx}" y="${y}" width="300" height="46" rx="4" fill="var(--steel)" opacity=".45" stroke="var(--mute)"/>`; });
+    const top = plates[0][0] - 18, bot = plates[plates.length - 1][0] + 46 + 18;
+    plates.forEach(([y, mv], i) => { const dx = mv ? off : 0; s += `<rect x="${300 + dx}" y="${i === 0 ? top : y}" width="40" height="${i === 0 ? y - top + 46 : i === plates.length - 1 ? bot - y : 46}" fill="${col}" opacity=".45" stroke="${col}" stroke-width="2"/>`; });
+    for (let i = 0; i + 1 < plates.length; i++) { const yy = plates[i][0] + 46 + (plates[i + 1][0] - plates[i][0] - 46) / 2 + 2; s += `<line x1="270" y1="${yy}" x2="370" y2="${yy}" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6 4"/>`; }
+    plates.forEach(([y, mv]) => { s += mv ? arrow(530, y + 23, 610, y + 23, "var(--acc)", 4) : arrow(110, y + 23, 30, y + 23, "var(--acc)", 4); });
+    s += txt(560, plates[1][0] + 5, `F${dbl ? "" : ""}`, { s: 13 }) + txt(320, bot + 30, broke ? "rupture par cisaillement" : L === 3 ? "l'axe se déforme" : "plan(s) de cisaillement", { c: broke || L === 3 ? col : "var(--mute)", w: 700 });
+    s += txt(320, 40, `τ = ${nf(r.sig)} MPa${r.fig.k > 1 ? " · " + r.fig.k + " organes" : ""}`, { w: 700 });
+  }
+  if (c.id === "flexion") {
+    const B = r.fig.B, x1 = 70, x2 = 570, y = 142, X = x => x1 + (x2 - x1) * x / B.L;
+    const amp = Math.min(55, 10 + B.fmax / B.L * 4000), fm = B.fmax || 1;
+    let p = "";
+    B.xs.forEach((x, i) => { p += `${i ? "L" : "M"}${X(x).toFixed(1)} ${(y + B.Y[i] / fm * amp).toFixed(1)}`; });
+    s += `<rect x="${x1}" y="${y - 10}" width="${x2 - x1}" height="20" fill="none" stroke="var(--mute)" stroke-dasharray="5 4"/>`;
+    s += `<path d="${p}" fill="none" stroke="${col}" stroke-width="16" stroke-linecap="round" opacity=".55"/>`;
+    if (B.sup === 0) s += hatch(x1 - 22, y - 50, 22, 100, true);
+    else if (B.sup === 2) s += hatch(x1 - 22, y - 50, 22, 100, true) + hatch(x2, y - 50, 22, 100, true);
+    else s += `<path d="M${x1} ${y + 12} l-14 24 h28z" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M${x2} ${y + 12} l-14 24 h28z" fill="none" stroke="var(--ink)" stroke-width="2"/><circle cx="${x2 - 7}" cy="${y + 42}" r="4" fill="none" stroke="var(--ink)"/><circle cx="${x2 + 7}" cy="${y + 42}" r="4" fill="none" stroke="var(--ink)"/>` + txt(x1, y + 58, "A", { s: 13 }) + txt(x2, y + 62, "B", { s: 13 });
+    if (B.Fq) {
+      const qm = Math.max(Math.abs(B.q1), Math.abs(B.q2)) || 1, hq = q => 14 + 34 * Math.abs(q) / qm, top = x => y - 14 - hq(B.q1 + (B.q2 - B.q1) * (x - B.x1) / (B.x2 - B.x1));
+      s += `<path d="M${X(B.x1)} ${y - 14} L${X(B.x1)} ${top(B.x1)} L${X(B.x2)} ${top(B.x2)} L${X(B.x2)} ${y - 14}Z" fill="var(--acc)" opacity=".12"/><line x1="${X(B.x1)}" y1="${top(B.x1)}" x2="${X(B.x2)}" y2="${top(B.x2)}" stroke="var(--acc)" stroke-width="2"/>`;
+      const n = Math.max(2, Math.round((X(B.x2) - X(B.x1)) / 40));
+      for (let k = 0; k <= n; k++) { const x = B.x1 + (B.x2 - B.x1) * k / n; s += arrow(X(x), top(x), X(x), y - 13, "var(--acc)", 2); }
+      s += txt((X(B.x1) + X(B.x2)) / 2, Math.min(top(B.x1), top(B.x2)) - 8, `q ${nf(B.q1 * 1000 / fu)} → ${nf(B.q2 * 1000 / fu)} ${fn}/m`, { s: 12.5 });
+    }
+    if (B.F) { const xx = X(B.a); s += `<g class="grab" style="cursor:ew-resize">` + arrow(xx, y - 86, xx, y - 14, "var(--ink)", 4) + `<circle cx="${xx}" cy="${y - 92}" r="9" fill="var(--acc)" stroke="var(--paper)" stroke-width="2"/></g>` + txt(xx, y - 106, `F = ${nf(F)} ${fn} · a = ${nf(B.a)} mm`, { s: 12.5, w: 600 }); }
+    const yM = 272, Mm = Math.max(...B.M.map(Math.abs), B.MA || 0, 1); let pm = `M${x1} ${yM}`;
+    B.xs.forEach((x, i) => { pm += ` L${X(x).toFixed(1)} ${(yM - B.M[i] / Mm * 44).toFixed(1)}`; });
+    s += `<path d="${pm} L${x2} ${yM}Z" fill="var(--acc)" opacity=".18" stroke="var(--acc)"/><line x1="${x1}" y1="${yM}" x2="${x2}" y2="${yM}" stroke="var(--ink)"/>` + txt(x1, yM + 54, "moment fléchissant", { a: "start", s: 12, c: "var(--mute)" }) + txt(x2, yM + 54, `|Mf| maxi ${nf(B.Mmax / 1000)} N·m à x = ${nf(B.xM)} mm`, { a: "end", s: 12, c: "var(--mute)" });
+    if (L >= 3) { const i = B.xs.indexOf(B.xM), cx = X(B.xM), cy = y + (B.Y[i] || 0) / fm * amp; s += `<path d="M${cx - 6} ${cy + 10} l6 -8 l-4 -6 l6 -8" stroke="var(--bad)" stroke-width="3" fill="none"/>` + txt(Math.min(Math.max(cx, 110), 530), cy + 38, L === 4 ? "rupture ici" : "plastification ici", { c: col, w: 700, s: 13 }); }
+    s += txt(320, 18, `σ maxi = ${nf(r.sig)} MPa · flèche ${nf(B.fmax)} mm`, { w: 700 });
+  }
+  if (c.id === "torsion") {
+    const x1 = 140, x2 = 500, y = 160, R = 42, tw = Math.min(70, 8 + Math.abs(r.fig.th) * 8);
+    s += `<rect x="${x1}" y="${y - R}" width="${x2 - x1}" height="${2 * R}" fill="${col}" opacity=".2" stroke="${col}" stroke-width="2"/><ellipse cx="${x1}" cy="${y}" rx="14" ry="${R}" fill="var(--paper)" stroke="${col}" stroke-width="2"/><ellipse cx="${x2}" cy="${y}" rx="14" ry="${R}" fill="none" stroke="${col}" stroke-width="2" stroke-dasharray="4 3"/>`;
+    for (let k = -1; k <= 1; k++) { const y0 = y + k * R * 0.6; s += `<path d="M${x1} ${y0} L${x2} ${Math.max(y - R, Math.min(y + R, y0 + tw * (k === 0 ? 1 : 0.6)))}" stroke="var(--ink)" stroke-width="1.6" fill="none"/>`; s += `<line x1="${x1}" y1="${y0}" x2="${x2}" y2="${y0}" stroke="var(--mute)" stroke-dasharray="3 4"/>`; }
+    const curl = (cx, dir) => `<path d="M${cx} ${y - R - 18} A 24 ${R + 18} 0 0 ${dir} ${cx} ${y + R + 18}" fill="none" stroke="var(--acc)" stroke-width="4"/>` + arrow(cx, y + R + 12, cx + (dir ? -14 : 14), y + R + 22, "var(--acc)", 3);
+    s += curl(x1 - 34, 0) + curl(x2 + 34, 1);
+    if (L >= 4) s += `<path d="M320 ${y - R} l-10 22 l14 14 l-12 22 l10 26" stroke="var(--bad)" stroke-width="3" fill="none"/>` + txt(320, y + R + 46, "rupture", { c: col, w: 700 });
+    else if (L === 3) s += txt(320, y + R + 46, "déformation permanente", { c: col, w: 700 });
+    s += txt(320, 46, `τ = ${nf(r.sig)} MPa · torsion ${nf(r.fig.th)}°`, { w: 700 });
+  }
+  if (c.id === "efforts3d") {
+    const g = r.fig, O = [150, 220], sc = 300 / Math.max(g.x, 1), P = (x, y, z) => [O[0] + x * sc - y * sc * 0.45, O[1] + y * sc * 0.3 - z * sc];
+    const ax = (to, lab) => { const p = P(...to); return arrow(O[0], O[1], p[0], p[1], "var(--mute)", 1.5) + txt(p[0] + 10, p[1] + 4, lab, { s: 13, c: "var(--mute)", a: "start" }); };
+    s += hatch(O[0] - 30, O[1] - 90, 30, 140, true);
+    s += ax([g.x * 1.25, 0, 0], "x") + ax([0, Math.max(60, g.x * 0.35), 0], "y") + ax([0, 0, Math.max(60, g.x * 0.3)], "z");
+    const e = P(g.x, 0, 0), p = P(g.x, g.y, g.z);
+    s += `<line x1="${O[0]}" y1="${O[1]}" x2="${e[0]}" y2="${e[1]}" stroke="${col}" stroke-width="18" stroke-linecap="round" opacity=".55"/>`;
+    s += `<line x1="${e[0]}" y1="${e[1]}" x2="${p[0]}" y2="${p[1]}" stroke="var(--steel)" stroke-width="10" stroke-linecap="round"/>`;
+    const Fm = Math.hypot(g.Fx, g.Fy, g.Fz) || 1, k = 110 / Fm;
+    const tip = [p[0] + (g.Fx * k) - (g.Fy * k) * 0.45, p[1] + (g.Fy * k) * 0.3 - g.Fz * k];
+    [[g.Fx, 0, 0, "Fx"], [0, g.Fy, 0, "Fy"], [0, 0, g.Fz, "Fz"]].forEach(([a, b, cz, lb]) => { if (Math.abs(a + b + cz) < Fm * 0.02) return; const q = [p[0] + a * k - b * k * 0.45, p[1] + b * k * 0.3 - cz * k]; s += `<g stroke-dasharray="5 4">${arrow(p[0], p[1], q[0], q[1], "var(--mute)", 2)}</g>` + txt(q[0] + 8, q[1] - 6, lb, { s: 12, c: "var(--mute)", a: "start" }); });
+    s += arrow(p[0], p[1], tip[0], tip[1], "var(--acc)", 4) + txt(tip[0] + 10, tip[1], `F = ${nf(F)} ${fn}`, { s: 13, a: "start", w: 700 });
+    s += txt(O[0] - 10, O[1] + 80, `Mt ${nf(g.Mx / 1000)} · My ${nf(g.My / 1000)} · Mz ${nf(g.Mz / 1000)} N·m`, { s: 12.5, a: "start" });
+    if (L >= 3) s += `<path d="M${O[0] + 6} ${O[1] - 14} l6 8 l-5 6 l6 8" stroke="var(--bad)" stroke-width="3" fill="none"/>` + txt(O[0] + 40, O[1] - 30, L === 4 ? "rupture à l'encastrement" : "plastification à l'encastrement", { c: col, w: 700, s: 13, a: "start" });
+    s += txt(320, 30, `σ équivalente = ${nf(r.sig)} MPa`, { w: 700 });
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Schéma du cas ${c.n} : ${LEVEL_TXT[r.lvl][0]}">${s}</svg>`;
+}
+
+/* ================= rendu des résultats ================= */
+let last = null;
+function run() {
+  const c = caseOf(cur), v = ST[cur], unk = v.unk;
+  let solved = null;
+  if (unk !== "none") {
+    solved = solve(c, v, unk);
+    if (solved !== null) { if (unk === "qs") { v.q1 *= solved; v.q2 *= solved; v.qs = 1; } else v[unk] = unk === "k" ? Math.ceil(solved - 1e-9) : solved; }
+  }
+  const r = compute(c, v);
+  if (r.bad) { $("verdict").innerHTML = `<div class="verdict v2"><div><div class="t">Données incohérentes</div><div class="d">${r.bad}</div></div></div>`; $("res").innerHTML = ""; $("fig").innerHTML = ""; $("gauge").innerHTML = ""; return; }
+  last = { c, v, r, unk, solved };
+  const ut = r.util;
+  let vtxt = LEVEL_TXT[r.lvl];
+  let head = `<div class="verdict v${r.lvl}"><b>${Math.round(ut * 100)} %</b><div><div class="t">${vtxt[0]}</div><div class="d">${vtxt[1]} Taux d'utilisation de la limite admissible.</div></div></div>`;
+  if (unk !== "none") {
+    const lab = unk === "Re" ? "Re mini" : unk in DIMS ? DIMS[unk][0].split(" (")[0] + " mini" : UNK_LAB[unk];
+    const unit = unk === "qs" ? fuName() + "/m" : unk === "F" ? fuName() : unk in DIMS ? DIMS[unk][1] : unk === "C" ? "N·m" : unk === "P" ? "kW" : unk === "L" ? "mm" : unk === "Re" ? "MPa" : "";
+    if (solved === null) head = `<div class="verdict v2"><div><div class="t">Pas de solution</div><div class="d">Aucune valeur de « ${lab} » ne permet de respecter la limite avec ces données.</div></div></div>`;
+    else {
+      let extra = "";
+      if (unk === "Re") { const ok = MATS.slice(0, -1).filter(m => m[1] >= v[unk]).map(m => m[0]).slice(0, 4); extra = ok.length ? `<div class="d">Exemples qui conviennent : ${ok.join(", ")}.</div>` : `<div class="d">Aucune nuance de la liste ne suffit.</div>`; }
+      if (unk in DIMS && unk !== "S" && unk !== "I" && unk !== "W") extra = `<div class="d">Prends la dimension du commerce juste au-dessus.</div>`;
+      head = `<div class="verdict v0"><b>${unk === "qs" ? nf(Math.max(v.q1, v.q2)) + " " + fuName() + "/m" : nf(v[unk]) + " " + unit}</b><div><div class="t">${lab}</div><div class="d">Valeur qui amène la pièce pile à la limite admissible (s = ${nf(v.s)}).</div>${extra}</div></div>`;
+      const inp = $("f-" + unk); if (inp) inp.value = nf(v[unk], 5).replace(/\s/g, "");
+      if (unk === "qs") ["q1", "q2"].forEach(k => { const e = $("f-" + k); if (e) e.value = nf(v[k], 5).replace(/\s/g, ""); });
+    }
+  }
+  $("verdict").innerHTML = head;
+  $("fig").innerHTML = figure(c, r, v);
+  // jauge
+  const isShear = c.id === "cisaillement" || c.id === "torsion";
+  const Rlim = isShear ? (v.crit == 1 ? 0.577 : 0.5) * v.Re : v.Re, Rrup = isShear ? 0.6 * v.Rm : v.Rm, adm = Rlim / v.s;
+  const mx = Math.max(Rrup * 1.15, r.sig * 1.05), pc = x => Math.min(100, x / mx * 100);
+  let l1 = Math.max(10, pc(adm)), l2 = Math.max(pc(Rlim), l1 + 22), l3 = Math.max(pc(Rrup), l2 + 24);
+  if (l3 > 90) { const d = l3 - 90; l3 -= d; l2 = Math.min(l2, l3 - 24); l1 = Math.min(l1, l2 - 22); }
+  $("gauge").innerHTML = `<div class="track" role="img" aria-label="Contrainte ${nf(r.sig)} MPa sur une échelle allant jusqu'à la rupture"><span class="mk" style="left:${pc(adm)}%"></span><span class="mk" style="left:${pc(Rlim)}%"></span><span class="mk" style="left:${pc(Rrup)}%"></span><span class="cur" style="left:${pc(r.sig)}%"></span></div>
+    <div class="lab"><span style="left:${l1}%">admissible ${nf(adm)}</span><span style="left:${l2}%">${isShear ? "Rg" : "Re"} ${nf(Rlim)}</span><span style="left:${l3}%">rupture ${nf(Rrup)}</span></div>`;
+  $("res").innerHTML = r.rows.map(([l, val, u, em]) => `<tr class="${em ? "em" : ""}"><td>${l}</td><td class="n">${nf(val)} ${u}</td></tr>`).join("");
+  $("notes").innerHTML = r.notes.map(n => `<p class="note">${n}</p>`).join("");
+  save();
+}
+
+/* ================= feuille de calcul détaillée ================= */
+function explain(c, v, r, unk, solved) {
+  const fn = fuName(), k = fu, E = v.E * 1000, F = (v.F || 0) * fu, sec = r.sec, st = [];
+  const N = x => nf(x, 4);
+  const step = (t, txt, f, sub, res) => st.push({ t, txt, f, sub, res });
+  // 1. données
+  const dims = SHAPES[v.shape].dims.map(d => `${d} = ${N(v[d])} ${DIMS[d][1]}`).join(" ; ");
+  let data = [];
+  if (v.F !== undefined && c.id !== "torsion" && c.id !== "flexion") data.push(`Effort F = ${N(v.F)} ${fn}${fu !== 1 ? ` = ${N(F)} N` : ""}`);
+  if (c.id === "torsion") data.push(v.mode == 1 ? `Puissance P = ${N(v.P)} kW ; vitesse N = ${N(v.N)} tr/min` : `Couple C = ${N(v.C)} N·m = ${N(v.C * 1000)} N·mm`);
+  if (["traction", "compression", "flexion", "torsion", "efforts3d"].includes(c.id)) data.push(`Longueur L = ${N(v.L)} mm`);
+  if (c.id === "compression") data.push(`Liaisons : ${FIX[v.fix][0]}`);
+  if (c.id === "cisaillement") data.push(`Sections cisaillées par organe n = ${v.n} ; nombre d'organes k = ${Math.max(1, Math.round(v.k))}`);
+  if (c.id === "flexion") data.push(`Appuis : ${SUPS[+v.sup || 0]}`, `Charge ponctuelle F = ${N(v.F)} ${fn} à a = ${N(v.pa)} mm`, `Charge répartie : q₁ = ${N(v.q1)} ${fn}/m → q₂ = ${N(v.q2)} ${fn}/m, de x₁ = ${N(v.x1)} à x₂ = ${N(v.x2)} mm (1 ${fn}/m = ${N(fu / 1000)} N/mm)`);
+  if (c.id === "efforts3d") data.push(`Point d'application : x = ${N(v.L)} ; y = ${N(v.oy)} ; z = ${N(v.oz)} mm`, `Direction : α = ${N(v.al)}° dans le plan horizontal, β = ${N(v.be)}° avec l'horizontale`);
+  data.push(`Section : ${SHAPES[v.shape].n} (${dims})`, `Matériau : ${MATS[v.mat][0]} ; Re = ${N(v.Re)} MPa ; Rm = ${N(v.Rm)} MPa ; E = ${N(v.E)} GPa = ${N(E)} MPa`, `Coefficient de sécurité demandé s = ${N(v.s)}`);
+  const uval = unk === "qs" ? `q₁ = ${N(v.q1)} → q₂ = ${N(v.q2)} ${fn}/m` : `${N(v[unk])} ${unkUnit(unk)}`;
+  if (unk !== "none" && solved !== null) data.push(`<b>Valeur trouvée par l'appli :</b> ${unkLabel(unk)} = ${uval} (voir la dernière étape)`);
+  step("Données", "Unités : longueurs en mm, forces en N, contraintes en MPa (1 MPa = 1 N/mm²), moments en N·mm.", null, data.join("<br>"), null);
+  // 2. section
+  const sh = v.shape, P = "π";
+  const need = { traction: ["S"], compression: ["S", "Imin"], cisaillement: ["S"], flexion: ["S", "I", "W"], torsion: ["S", "I0", "W0"], efforts3d: ["S", "W", "W0"] }[c.id];
+  const sf = [];
+  if (sh === "rond") {
+    sf.push(["S", "S = π·d² / 4", `π × ${N(v.d)}² / 4`, sec.S, "mm²"], ["I", "I = π·d⁴ / 64", `π × ${N(v.d)}⁴ / 64`, sec.I, "mm⁴"], ["Imin", "I = π·d⁴ / 64", `π × ${N(v.d)}⁴ / 64`, sec.Imin, "mm⁴"], ["W", "W = π·d³ / 32", `π × ${N(v.d)}³ / 32`, sec.W, "mm³"], ["I0", "I₀ = π·d⁴ / 32", `π × ${N(v.d)}⁴ / 32`, sec.I0, "mm⁴"], ["W0", "W₀ = π·d³ / 16", `π × ${N(v.d)}³ / 16`, sec.W0, "mm³"]);
+  } else if (sh === "tube") {
+    const d = v.D - 2 * v.e;
+    sf.push(["S", "d_int = D − 2e ; S = π·(D² − d_int²) / 4", `d_int = ${N(v.D)} − 2 × ${N(v.e)} = ${N(d)} ; π × (${N(v.D)}² − ${N(d)}²) / 4`, sec.S, "mm²"], ["I", "I = π·(D⁴ − d_int⁴) / 64", `π × (${N(v.D)}⁴ − ${N(d)}⁴) / 64`, sec.I, "mm⁴"], ["Imin", "I = π·(D⁴ − d_int⁴) / 64", `π × (${N(v.D)}⁴ − ${N(d)}⁴) / 64`, sec.Imin, "mm⁴"], ["W", "W = I / (D/2)", `${N(sec.I)} / ${N(v.D / 2)}`, sec.W, "mm³"], ["I0", "I₀ = 2·I", `2 × ${N(sec.I)}`, sec.I0, "mm⁴"], ["W0", "W₀ = I₀ / (D/2)", `${N(sec.I0)} / ${N(v.D / 2)}`, sec.W0, "mm³"]);
+  } else if (sh === "carre") {
+    sf.push(["S", "S = a²", `${N(v.a)}²`, sec.S, "mm²"], ["I", "I = a⁴ / 12", `${N(v.a)}⁴ / 12`, sec.I, "mm⁴"], ["Imin", "I = a⁴ / 12", `${N(v.a)}⁴ / 12`, sec.Imin, "mm⁴"], ["W", "W = a³ / 6", `${N(v.a)}³ / 6`, sec.W, "mm³"], ["W0", "torsion d'un carré : W_t ≈ a³ / 4,8", `${N(v.a)}³ / 4,8`, sec.Wt, "mm³"]);
+  } else if (sh === "rect") {
+    sf.push(["S", "S = b·h", `${N(v.b)} × ${N(v.h)}`, sec.S, "mm²"], ["I", "I = b·h³ / 12 (flexion dans le sens de h)", `${N(v.b)} × ${N(v.h)}³ / 12`, sec.I, "mm⁴"], ["Imin", "I_min = plus petit de b·h³/12 et h·b³/12 (le flambement part du côté le plus faible)", `min(${N(v.b * v.h ** 3 / 12)} ; ${N(v.h * v.b ** 3 / 12)})`, sec.Imin, "mm⁴"], ["W", "W = b·h² / 6", `${N(v.b)} × ${N(v.h)}² / 6`, sec.W, "mm³"], ["W0", "torsion : W_t ≈ L·e² / (3 + 1,8·e/L) avec L = grand côté, e = petit côté", `voir formule`, sec.Wt, "mm³"]);
+  } else if (sh === "tuber") {
+    const bi = v.B - 2 * v.e, hi = v.H - 2 * v.e;
+    sf.push(["S", "S = B·H − (B − 2e)·(H − 2e)", `${N(v.B)} × ${N(v.H)} − ${N(bi)} × ${N(hi)}`, sec.S, "mm²"], ["I", "I = [B·H³ − (B−2e)·(H−2e)³] / 12", `[${N(v.B)} × ${N(v.H)}³ − ${N(bi)} × ${N(hi)}³] / 12`, sec.I, "mm⁴"], ["Imin", "I_min = plus petit des deux moments quadratiques", "", sec.Imin, "mm⁴"], ["W", "W = I / (H/2)", `${N(sec.I)} / ${N(v.H / 2)}`, sec.W, "mm³"], ["W0", "torsion (Bredt) : W_t = 2·(B − e)·(H − e)·e", `2 × ${N(v.B - v.e)} × ${N(v.H - v.e)} × ${N(v.e)}`, sec.Wt, "mm³"]);
+  } else sf.push(["S", "S saisie", "", sec.S, "mm²"], ["I", "I saisi", "", sec.I, "mm⁴"], ["Imin", "I saisi", "", sec.Imin, "mm⁴"], ["W", "W saisi", "", sec.W, "mm³"]);
+  const NAMES = { S: "Aire de la section", I: "Moment quadratique (flexion)", Imin: "Moment quadratique mini", W: "Module de flexion", I0: "Moment quadratique polaire", W0: "Module de torsion" };
+  need.forEach(n => { const s = sf.find(x => x[0] === n); if (s && s[3] !== undefined) step(NAMES[n], "", s[1], s[2], `${N(s[3])} ${s[4]}`); });
+  // 3. calcul propre au cas
+  const Rpe = v.Re / v.s;
+  if (c.id === "traction") {
+    step("Contrainte de traction", "L'effort se répartit sur toute la section.", "σ = F / S", `${N(F)} / ${N(sec.S)}`, `${N(r.sig)} MPa`);
+    step("Contrainte admissible", "Limite élastique divisée par le coefficient de sécurité.", "σ_adm = Re / s", `${N(v.Re)} / ${N(v.s)}`, `${N(Rpe)} MPa`);
+    step("Taux d'utilisation", "Au-dessus de 100 %, la marge demandée n'est plus respectée.", "taux = σ / σ_adm", `${N(r.sig)} / ${N(Rpe)}`, `${N(r.util * 100)} %`);
+    step("Coefficient de sécurité réel", "", "s_réel = Re / σ", `${N(v.Re)} / ${N(r.sig)}`, N(v.Re / r.sig));
+    step("Effort maxi admissible", "", "F_max = σ_adm · S", `${N(Rpe)} × ${N(sec.S)}`, `${N(Rpe * sec.S)} N = ${N(Rpe * sec.S / k)} ${fn}`);
+    step("Effort de début de déformation permanente", "", "F_e = Re · S", `${N(v.Re)} × ${N(sec.S)}`, `${N(v.Re * sec.S)} N`);
+    step("Effort de rupture", "", "F_r = Rm · S", `${N(v.Rm)} × ${N(sec.S)}`, `${N(v.Rm * sec.S)} N`);
+    step("Allongement (loi de Hooke)", "", "ΔL = F · L / (E · S)", `${N(F)} × ${N(v.L)} / (${N(E)} × ${N(sec.S)})`, `${N(F * v.L / (E * sec.S))} mm`);
+  }
+  if (c.id === "compression") {
+    const K = FIX[v.fix][1], Lf = K * v.L, i = Math.sqrt(sec.Imin / sec.S), lam = Lf / i, lamC = Math.PI * Math.sqrt(2 * E / v.Re);
+    step("Contrainte d'écrasement", "", "σ = F / S", `${N(F)} / ${N(sec.S)}`, `${N(r.sig)} MPa`);
+    step("Longueur de flambement", `Coefficient K selon les liaisons : articulé–articulé 1 ; encastré–libre 2 ; encastré–articulé 0,7 ; encastré–encastré 0,5. Ici K = ${K}.`, "Lf = K · L", `${K} × ${N(v.L)}`, `${N(Lf)} mm`);
+    step("Rayon de giration", "", "i = √(I_min / S)", `√(${N(sec.Imin)} / ${N(sec.S)})`, `${N(i)} mm`);
+    step("Élancement", "Plus il est grand, plus la pièce flambe facilement.", "λ = Lf / i", `${N(Lf)} / ${N(i)}`, N(lam));
+    step("Élancement critique", "Frontière entre pièce élancée (Euler) et pièce trapue (Johnson).", "λc = π · √(2E / Re)", `π × √(2 × ${N(E)} / ${N(v.Re)})`, N(lamC));
+    let Fcr;
+    if (lam >= lamC) { Fcr = Math.PI ** 2 * E * sec.Imin / (Lf * Lf); step("Charge critique (Euler, car λ ≥ λc)", "", "F_cr = π² · E · I_min / Lf²", `π² × ${N(E)} × ${N(sec.Imin)} / ${N(Lf)}²`, `${N(Fcr)} N`); }
+    else { Fcr = sec.S * (v.Re - v.Re ** 2 * lam ** 2 / (4 * Math.PI ** 2 * E)); step("Charge critique (Johnson, car λ < λc)", "", "F_cr = S · [Re − Re² · λ² / (4π² · E)]", `${N(sec.S)} × [${N(v.Re)} − ${N(v.Re)}² × ${N(lam)}² / (4π² × ${N(E)})]`, `${N(Fcr)} N`); }
+    const uC = r.sig / Rpe, uF = F / (Fcr / v.s);
+    step("Taux à l'écrasement", "", "taux = σ / (Re / s)", `${N(r.sig)} / ${N(Rpe)}`, `${N(uC * 100)} %`);
+    step("Taux au flambement", "", "taux = F / (F_cr / s)", `${N(F)} / (${N(Fcr)} / ${N(v.s)})`, `${N(uF * 100)} %`);
+    step("Taux retenu", "On garde le plus défavorable des deux.", "taux = max(écrasement ; flambement)", `max(${N(uC * 100)} % ; ${N(uF * 100)} %)`, `${N(r.util * 100)} % (${r.mode})`);
+  }
+  if (c.id === "cisaillement") {
+    const nn = +v.n, kk = Math.max(1, Math.round(v.k)), cr = v.crit == 1 ? 0.577 : 0.5, Rg = cr * v.Re, tau = F / (nn * kk * sec.S);
+    step("Résistance au glissement", cr === 0.5 ? "Critère de Tresca : Rg = 0,5·Re (prudent)." : "Critère de Von Mises : Rg = Re / √3 ≈ 0,577·Re.", `Rg = ${String(cr).replace(".", ",")} · Re`, `${String(cr).replace(".", ",")} × ${N(v.Re)}`, `${N(Rg)} MPa`);
+    step("Contrainte de cisaillement", "L'effort se partage entre toutes les sections cisaillées de tous les organes.", "τ = F / (n · k · S)", `${N(F)} / (${nn} × ${kk} × ${N(sec.S)})`, `${N(tau)} MPa`);
+    step("Contrainte admissible", "", "τ_adm = Rg / s", `${N(Rg)} / ${N(v.s)}`, `${N(Rg / v.s)} MPa`);
+    step("Taux d'utilisation", "", "taux = τ / τ_adm", `${N(tau)} / ${N(Rg / v.s)}`, `${N(r.util * 100)} %`);
+    step("Effort maxi admissible", "", "F_max = τ_adm · n · k · S", `${N(Rg / v.s)} × ${nn} × ${kk} × ${N(sec.S)}`, `${N(Rg / v.s * nn * kk * sec.S)} N`);
+    step("Effort de rupture estimé", "La résistance à la rupture en cisaillement vaut environ 0,6 × Rm pour les aciers.", "F_r ≈ 0,6 · Rm · n · k · S", `0,6 × ${N(v.Rm)} × ${nn} × ${kk} × ${N(sec.S)}`, `${N(0.6 * v.Rm * nn * kk * sec.S)} N`);
+  }
+  if (c.id === "flexion") {
+    const B = r.fig.B, L = B.L, I = sec.I, L_ = N(L);
+    const parts = [];
+    if (B.F) parts.push(`charge ponctuelle F = ${N(B.F)} N à a = ${N(B.a)} mm`);
+    let xg = 0;
+    if (B.Fq) {
+      xg = B.x1 + (B.x2 - B.x1) * (B.q1 + 2 * B.q2) / (3 * (B.q1 + B.q2) || 1);
+      step("Charge répartie : résultante", "Une charge répartie se remplace par une force unique égale à son aire, placée à son centre de gravité.", "Q = (q₁ + q₂) / 2 · (x₂ − x₁) ; x_G = x₁ + (x₂ − x₁)·(q₁ + 2q₂) / (3·(q₁ + q₂))",
+        `q₁ = ${N(B.q1)} N/mm ; q₂ = ${N(B.q2)} N/mm ; Q = (${N(B.q1)} + ${N(B.q2)}) / 2 × (${N(B.x2)} − ${N(B.x1)})`, `Q = ${N(B.Fq)} N à x_G = ${N(xg)} mm`);
+    }
+    const loadsTxt = [B.F ? `${N(B.F)} × ${N(B.a)}` : "", B.Fq ? `${N(B.Fq)} × ${N(xg)}` : ""].filter(Boolean).join(" + ");
+    if (B.sup === 0) {
+      step("Réaction à l'encastrement", "Équilibre des forces verticales.", "R = F + Q", `${N(B.F)} + ${N(B.Fq)}`, `${N(B.RA)} N`);
+      step("Moment d'encastrement", "Équilibre des moments autour de l'encastrement.", "M_A = F·a + Q·x_G", loadsTxt, `${N(B.MA)} N·mm`);
+    } else if (B.sup === 1) {
+      step("Réaction en B", "Moments autour de l'appui A.", "R_B = (F·a + Q·x_G) / L", `(${loadsTxt}) / ${L_}`, `${N(B.RB)} N`);
+      step("Réaction en A", "Équilibre des forces verticales.", "R_A = F + Q − R_B", `${N(B.F)} + ${N(B.Fq)} − ${N(B.RB)}`, `${N(B.RA)} N`);
+    } else {
+      step("Réactions et moments d'encastrement", "Poutre hyperstatique : pour chaque charge P placée à p (b = L − p), on applique les formules de la poutre bi-encastrée, puis on additionne.", "M_A = P·p·b² / L² ; M_B = P·p²·b / L² ; R_A = P·b²·(3p + b) / L³ ; R_B = P·p²·(p + 3b) / L³", "", `R_A = ${N(B.RA)} N ; R_B = ${N(B.RB)} N ; M_A = ${N(B.MA)} N·mm ; M_B = ${N(B.MB)} N·mm`);
+    }
+    const onlyF = B.F && !B.Fq;
+    if (onlyF) {
+      const a = B.a, b = L - a;
+      const f = [["Mf = F · a (à l'encastrement)", `${N(B.F)} × ${N(a)}`], ["Mf = F · a · b / L (sous la charge)", `${N(B.F)} × ${N(a)} × ${N(b)} / ${L_}`], ["Mf = maxi de M_A, M_B et 2·F·a²·b² / L³ (sous la charge)", `max(${N(B.MA)} ; ${N(B.MB)} ; ${N(2 * B.F * a * a * b * b / L ** 3)})`]][B.sup];
+      step("Moment fléchissant maxi", "", f[0], f[1], `${N(B.Mmax)} N·mm à x = ${N(B.xM)} mm`);
+    } else step("Moment fléchissant maxi", "Le moment est calculé en 241 points le long de la poutre (somme des effets de chaque charge) ; on garde le plus grand en valeur absolue.", "Mf(x) = Σ effets des charges ; Mf maxi = max |Mf(x)|", "", `${N(B.Mmax)} N·mm à x = ${N(B.xM)} mm`);
+    const yf = ["y(x) = P·x²·(3p − x) / (6·E·I) pour x ≤ p ; P·p²·(3x − p) / (6·E·I) au-delà", "y(x) = P·b·x·(L² − b² − x²) / (6·E·I·L) pour x ≤ p (symétrique au-delà)", "y(x) = P·b²·x²·(3pL − (3p + b)·x) / (6·E·I·L³) pour x ≤ p (symétrique au-delà)"][B.sup];
+    step("Flèche", "Déformée de la poutre pour chaque charge P placée à p, additionnée sur toute la longueur.", yf, `E·I = ${N(E)} × ${N(I)} = ${N(E * I)} N·mm²`, `flèche maxi ${N(B.fmax)} mm à x = ${N(B.xf)} mm`);
+    step("Contrainte de flexion", "Maximale sur la fibre la plus éloignée, à l'endroit du moment maxi.", "σ = Mf / W", `${N(B.Mmax)} / ${N(sec.W)}`, `${N(r.sig)} MPa`);
+    step("Contrainte admissible", "", "σ_adm = Re / s", `${N(v.Re)} / ${N(v.s)}`, `${N(Rpe)} MPa`);
+    step("Taux d'utilisation", "", "taux = σ / σ_adm", `${N(r.sig)} / ${N(Rpe)}`, `${N(r.util * 100)} %`);
+    if (onlyF) step("Charge maxi admissible", "Tout est proportionnel à la charge.", "F_max = F / taux", `${N(B.F)} / ${N(r.util)}`, `${N(B.F / r.util)} N`);
+    else step("Charges maxi admissibles", "Toutes les charges peuvent être multipliées par ce coefficient.", "k = 1 / taux", `1 / ${N(r.util)}`, N(1 / r.util));
+    if (v.fl > 0) step("Flèche admissible", B.fmax > L / v.fl ? "Dépassée : la poutre tient mais plie trop." : "Respectée.", `f_adm = L / ${v.fl}`, `${L_} / ${v.fl}`, `${N(L / v.fl)} mm (flèche réelle ${N(B.fmax)} mm)`);
+  }
+  if (c.id === "torsion") {
+    let C = v.C * 1000;
+    if (v.mode == 1) { const w = 2 * Math.PI * v.N / 60; C = v.P * 1000 / w * 1000; step("Vitesse angulaire", "", "ω = 2π · N / 60", `2π × ${N(v.N)} / 60`, `${N(w)} rad/s`); step("Couple transmis", "", "C = P / ω", `${N(v.P * 1000)} W / ${N(w)}`, `${N(C / 1000)} N·m = ${N(C)} N·mm`); }
+    const cr = v.crit == 1 ? 0.577 : 0.5, Rg = cr * v.Re, tau = C / sec.W0, G = E / (2 * (1 + v.nu)), th = C * v.L / (G * sec.I0);
+    step("Contrainte de torsion", "Maximale à la surface de l'arbre.", "τ = C / W₀", `${N(C)} / ${N(sec.W0)}`, `${N(tau)} MPa`);
+    step("Résistance au glissement", "", `Rg = ${String(cr).replace(".", ",")} · Re`, `${String(cr).replace(".", ",")} × ${N(v.Re)}`, `${N(Rg)} MPa`);
+    step("Taux d'utilisation", "", "taux = τ / (Rg / s)", `${N(tau)} / (${N(Rg)} / ${N(v.s)})`, `${N(tau / (Rg / v.s) * 100)} %`);
+    step("Module de cisaillement", "", "G = E / (2 · (1 + ν))", `${N(E)} / (2 × (1 + ${N(v.nu)}))`, `${N(G)} MPa`);
+    step("Angle de torsion", "", "θ = C · L / (G · I₀)", `${N(C)} × ${N(v.L)} / (${N(G)} × ${N(sec.I0)})`, `${N(th)} rad = ${N(th * 180 / Math.PI)}°`);
+    step("Couple maxi admissible", "", "C_max = (Rg / s) · W₀", `${N(Rg / v.s)} × ${N(sec.W0)}`, `${N(Rg / v.s * sec.W0 / 1000)} N·m`);
+  }
+  if (c.id === "efforts3d") {
+    const g = r.fig, al = v.al * Math.PI / 180, be = v.be * Math.PI / 180;
+    step("Décomposition de la force", "Projection de F sur les trois axes.", "Fx = F·cos β·cos α ; Fy = F·cos β·sin α ; Fz = F·sin β", `Fx = ${N(F)} × ${N(Math.cos(be))} × ${N(Math.cos(al))} ; Fy = ${N(F)} × ${N(Math.cos(be))} × ${N(Math.sin(al))} ; Fz = ${N(F)} × ${N(Math.sin(be))}`, `Fx = ${N(g.Fx)} N ; Fy = ${N(g.Fy)} N ; Fz = ${N(g.Fz)} N`);
+    step("Moments à l'encastrement", "Produit vectoriel M = r ∧ F, avec r = (x ; y ; z) le vecteur de l'encastrement au point d'application.", "Mx = y·Fz − z·Fy ; My = z·Fx − x·Fz ; Mz = x·Fy − y·Fx",
+      `Mx = ${N(g.y)}×${N(g.Fz)} − ${N(g.z)}×${N(g.Fy)} ; My = ${N(g.z)}×${N(g.Fx)} − ${N(g.x)}×${N(g.Fz)} ; Mz = ${N(g.x)}×${N(g.Fy)} − ${N(g.y)}×${N(g.Fx)}`, `Mt = Mx = ${N(g.Mx / 1000)} N·m ; My = ${N(g.My / 1000)} N·m ; Mz = ${N(g.Mz / 1000)} N·m`);
+    const sN = g.Fx / sec.S;
+    step("Contrainte normale (effort N = Fx)", "", "σ_N = N / S", `${N(g.Fx)} / ${N(sec.S)}`, `${N(sN)} MPa`);
+    let sM, tau;
+    if (sec.round) { const Mf = Math.hypot(g.My, g.Mz); sM = Mf / sec.W; tau = Math.abs(g.Mx) / sec.W0; step("Moment de flexion résultant", "Section ronde : les deux flexions se combinent.", "Mf = √(My² + Mz²)", `√(${N(g.My)}² + ${N(g.Mz)}²)`, `${N(Mf)} N·mm`); step("Contrainte de flexion", "", "σ_f = Mf / W", `${N(Mf)} / ${N(sec.W)}`, `${N(sM)} MPa`); step("Contrainte de torsion", "", "τ = |Mt| / W₀", `${N(Math.abs(g.Mx))} / ${N(sec.W0)}`, `${N(tau)} MPa`); }
+    else { sM = Math.abs(g.Mz) / sec.W + Math.abs(g.My) / sec.W2; tau = sec.Wt ? Math.abs(g.Mx) / sec.Wt : 0; step("Contrainte de flexion", "Section non ronde : on additionne les deux flexions au coin le plus chargé.", "σ_f = |Mz| / W + |My| / W'", `${N(Math.abs(g.Mz))} / ${N(sec.W)} + ${N(Math.abs(g.My))} / ${N(sec.W2)}`, `${N(sM)} MPa`); step("Contrainte de torsion", "", "τ = |Mt| / W_t", `${N(Math.abs(g.Mx))} / ${N(sec.Wt || 0)}`, `${N(tau)} MPa`); }
+    const sx = Math.abs(sN) + sM;
+    step("Contrainte normale totale", "", "σ = |σ_N| + σ_f", `${N(Math.abs(sN))} + ${N(sM)}`, `${N(sx)} MPa`);
+    step("Contrainte équivalente", v.crit == 1 ? "Critère de Tresca." : "Critère de Von Mises.", v.crit == 1 ? "σ_eq = √(σ² + 4τ²)" : "σ_eq = √(σ² + 3τ²)", `√(${N(sx)}² + ${v.crit == 1 ? 4 : 3} × ${N(tau)}²)`, `${N(r.sig)} MPa`);
+    step("Taux d'utilisation", "", "taux = σ_eq / (Re / s)", `${N(r.sig)} / ${N(Rpe)}`, `${N(r.util * 100)} %`);
+    step("Force maxi admissible (même direction)", "Les contraintes sont proportionnelles à F.", "F_max = F / taux", `${N(F)} / ${N(r.util)}`, `${N(F / r.util)} N`);
+  }
+  // 4. inconnue
+  if (unk !== "none" && solved !== null) {
+    let how = "L'appli fait varier cette valeur (méthode par dichotomie) jusqu'à ce que le taux d'utilisation vaille exactement 100 %. Toutes les étapes ci-dessus sont recalculées avec la valeur trouvée.";
+    let f = "taux(" + unkLabel(unk) + ") = 100 %";
+    if (c.id === "traction" && unk === "F") { f = "F_max = (Re / s) · S"; }
+    if (c.id === "traction" && unk === "d") { f = "S_min = F · s / Re  puis  d = √(4 · S_min / π)"; how = "Calcul direct. " + how; }
+    if (unk === "Re") f = "Re_mini = σ · s (le matériau doit avoir au moins cette limite élastique)";
+    if (unk === "qs") how = "L'appli multiplie q₁ et q₂ par un même coefficient (dichotomie) jusqu'à ce que le taux d'utilisation vaille 100 %. ";
+    step("Comment l'inconnue a été trouvée", how, f, "", `${unkLabel(unk)} = ${uval}`);
+  }
+  step("Conclusion", LEVEL_TXT[r.lvl][1], null, "", `${LEVEL_TXT[r.lvl][0]} · taux ${N(r.util * 100)} % · coefficient de sécurité réel ${N(r.util > 0 ? v.s / r.util : Infinity)}`);
+  return st;
+}
+const unkLabel = u => u === "Re" ? "Re mini" : u in DIMS ? DIMS[u][0].split(" (")[0] : (UNK_LAB[u] || u);
+const unkUnit = u => u === "qs" ? fuName() + "/m" : u === "F" ? fuName() : u in DIMS ? DIMS[u][1] : u === "C" ? "N·m" : u === "P" ? "kW" : u === "L" ? "mm" : u === "Re" ? "MPa" : "";
+function openSheet() {
+  if (!last) return;
+  const { c, v, r, unk, solved } = last;
+  const st = explain(c, v, r, unk, solved);
+  const d = new Date().toLocaleDateString("fr-FR");
+  $("sheetBody").innerHTML = `<div class="sh-h"><div><h2>Feuille de calcul · ${c.n}</h2><p>RDM Atelier · ${d}</p></div><div class="sh-v v${r.lvl}">${LEVEL_TXT[r.lvl][0]}<b>${Math.round(r.util * 100)} %</b></div></div>
+    <div class="sh-fig">${figure(c, r, v)}</div>
+    <ol class="steps">${st.map(s => `<li><h4>${s.t}</h4>${s.txt ? `<p>${s.txt}</p>` : ""}${s.f ? `<div class="f">${s.f}</div>` : ""}${s.sub ? `<div class="sb${s.f ? "" : " plain"}">${s.f ? "= " : ""}${s.sub}</div>` : ""}${s.res ? `<div class="rs">= <b>${s.res}</b></div>` : ""}</li>`).join("")}</ol>
+    <p class="note">Outil de pré-dimensionnement. Valeurs matière typiques : à vérifier sur la fiche de la nuance utilisée.</p>`;
+  $("sheet").hidden = false; document.body.classList.add("sheet-open");
+  $("sheetClose").focus();
+}
+function sheetText() {
+  const { c, v, r, unk, solved } = last;
+  const strip = h => String(h || "").replace(/<br>/g, "\n   ").replace(/<[^>]+>/g, "");
+  return [`FEUILLE DE CALCUL · ${c.n}`, ""].concat(explain(c, v, r, unk, solved).map((s, i) => `${i + 1}. ${s.t}` + (s.txt ? `\n   ${strip(s.txt)}` : "") + (s.f ? `\n   ${strip(s.f)}` : "") + (s.sub ? `\n   ${s.f ? "= " : ""}${strip(s.sub)}` : "") + (s.res ? `\n   = ${strip(s.res)}` : ""))).join("\n\n");
+}
+
+/* ================= évènements ================= */
+function setCase(id) { cur = id; renderCases(); renderForm(); run(); }
+$("cases").addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) setCase(b.dataset.c); });
+$("form").addEventListener("input", e => {
+  const t = e.target, k = t.dataset.k; if (!k || t.tagName !== "INPUT") return;
+  const x = parseFloat(t.value.replace(",", ".").replace(/\s/g, "")); if (!isFinite(x)) return;
+  const v = ST[cur];
+  v[k] = k === "F" || k === "C" || k === "P" || k === "N" || k === "L" || k in DIMS || k === "Re" || k === "Rm" || k === "E" || k === "s" || k === "k" || k === "fl" || k === "th" || k === "a" || k === "al" || k === "be" || k === "oy" || k === "oz" ? x : x;
+  document.querySelectorAll(`#form [data-k="${k}"]`).forEach(el => { if (el !== t && el.tagName === "INPUT") el.value = el.type === "range" ? x : nf(x, 5).replace(/\s/g, ""); });
+  if (k === "L" && $("r-a")) { $("r-a").max = x; $("r-a").step = Math.max(1, x / 200); }
+  if (k === "Re" || k === "Rm" || k === "E") { v.mat = MATS.length - 1; const s = document.querySelector('select[data-k="mat"]'); if (s) s.value = v.mat; }
+  run();
+});
+$("form").addEventListener("change", e => {
+  const t = e.target, v = ST[cur];
+  if (t.id === "unk") { v.unk = t.value; renderForm(); run(); return; }
+  const k = t.dataset.k; if (!k || t.tagName !== "SELECT") return;
+  const x = +t.value;
+  if (k === "mat") { v.mat = x; const m = MATS[x]; if (x < MATS.length - 1) { v.Re = m[1]; v.Rm = m[2]; v.E = m[3]; v.nu = m[4]; } renderForm(); run(); return; }
+  if (k === "n") v.n = x + 1; else v[k] = x;
+  renderForm(); run();
+});
+$("form").addEventListener("click", e => { const b = e.target.closest("button[data-shape]"); if (!b) return; const v = ST[cur]; v.shape = b.dataset.shape; if (v.unk in DIMS) v.unk = "none"; renderForm(); run(); });
+$("form").addEventListener("focusin", e => { const t = e.target; if (t.tagName === "INPUT" && !t.readOnly) setTimeout(() => t.select(), 0); });
+$("fu").value = String(fu);
+$("fu").addEventListener("change", e => { const nfu = +e.target.value; CASES.forEach(c => { const v = ST[c.id]; v.F = v.F * fu / nfu; if (c.id === "flexion") { v.q1 = (v.q1 || 0) * fu / nfu; v.q2 = (v.q2 || 0) * fu / nfu; } }); fu = nfu; renderForm(); run(); });
+$("reset").addEventListener("click", () => { ST[cur] = defState(caseOf(cur)); ST[cur].F = (ST[cur].F || 0) / fu; renderForm(); run(); toast("Valeurs par défaut remises"); });
+$("copy").addEventListener("click", async () => {
+  if (!last) return;
+  const { c, v, r } = last;
+  const lines = [`RDM Atelier · ${c.n}`, `Section : ${SHAPES[v.shape].n} (${SHAPES[v.shape].dims.map(d => d + " = " + nf(v[d]) + " " + DIMS[d][1]).join(", ")})`, `Matériau : ${MATS[v.mat][0]} · Re ${nf(v.Re)} MPa · Rm ${nf(v.Rm)} MPa · s = ${nf(v.s)}`, `Verdict : ${LEVEL_TXT[r.lvl][0]} (${Math.round(r.util * 100)} % de l'admissible)`, ""].concat(r.rows.map(([l, x, u]) => `${l || "  "} : ${nf(x)} ${u}`));
+  try { await navigator.clipboard.writeText(lines.join("\n")); toast("Fiche copiée"); } catch (e) { toast("Copie bloquée par le navigateur"); }
+});
+CASES.forEach(c => { if (ST[c.id].nu === undefined) ST[c.id].nu = 0.3; });
+let dragF = false;
+const dragTo = e => { const svg = $("fig").querySelector("svg"); if (!svg) return; const b = svg.getBoundingClientRect(), xs = (e.clientX - b.left) / b.width * 640, v = ST.flexion; v.pa = Math.round(Math.min(1, Math.max(0, (xs - 70) / 500)) * v.L / 5) * 5; document.querySelectorAll('#form [data-k="pa"]').forEach(el => el.value = el.type === "range" ? v.pa : String(v.pa)); run(); };
+$("fig").addEventListener("pointerdown", e => { if (cur !== "flexion" || !ST.flexion.F || !e.target.closest(".grab, svg")) return; const svg = $("fig").querySelector("svg"), b = svg.getBoundingClientRect(); if ((e.clientY - b.top) / b.height * 340 > 165) return; dragF = true; $("fig").setPointerCapture(e.pointerId); dragTo(e); });
+$("fig").addEventListener("pointermove", e => { if (dragF) dragTo(e); });
+$("fig").addEventListener("pointerup", () => { dragF = false; }); $("fig").addEventListener("pointercancel", () => { dragF = false; });
+$("sheetOpen").addEventListener("click", openSheet);
+const closeSheet = () => { $("sheet").hidden = true; document.body.classList.remove("sheet-open"); $("sheetOpen").focus(); };
+$("sheetClose").addEventListener("click", closeSheet);
+$("sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
+$("sheetPrint").addEventListener("click", () => { try { window.print(); } catch (e) { toast("Impression bloquée ici : utilise « Copier le texte »"); } });
+$("sheetCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(sheetText()); toast("Feuille copiée"); } catch (e) { toast("Copie bloquée par le navigateur"); } });
+renderCases(); renderForm(); run();
+if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude|anthropic/.test(location.hostname)) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
