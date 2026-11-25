@@ -11,3 +11,15 @@ Unités : longueurs en mm, contraintes en MPa (N/mm²), forces en N, daN ou kN (
 Les valeurs matière sont typiques : vérifie toujours la fiche de ta nuance.
 Outil d'aide au pré-dimensionnement : il ne remplace pas une note de calcul validée
 pour du levage ou de la sécurité des personnes.
+
+## Onglet « Code de calcul » (CODAP ou autre)
+
+L'appli ne contient aucune règle de code de construction. Pour activer l'onglet, glisse
+dans l'appli (ou choisis avec le bouton) ton fichier référentiel `.json` et tes PDF.
+Tout reste stocké sur l'appareil (IndexedDB), rien n'est envoyé.
+
+**Ne mets jamais le référentiel ni les PDF dans le dépôt GitHub** : ils sont sous licence.
+Garde-les sur ton téléphone / PC et glisse-les dans l'appli installée.
+
+La liseuse PDF se télécharge (pdf.js) à la première ouverture d'un PDF, il faut donc
+une connexion cette fois-là ; ensuite elle marche hors ligne.

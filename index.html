@@ -94,8 +94,30 @@ tr.em td{font-weight:700}tr.em td.n{color:var(--acc)}
 .steps h4{margin:0 0 4px;font-size:15.5px}.steps p{margin:0 0 6px;color:var(--mute);font-size:14px}
 .steps .f{font:500 14.5px "IBM Plex Mono",monospace;background:var(--acc2);color:var(--acc);display:inline-block;padding:3px 8px;border-radius:6px}
 .steps .sb{font:14px "IBM Plex Mono",monospace;margin-top:5px;overflow-wrap:anywhere}.steps .sb.plain{font:14px/1.6 "IBM Plex Sans",sans-serif}.steps .rs{font:14.5px "IBM Plex Mono",monospace;margin-top:3px}.steps .rs b{color:var(--ink)}
+label.btn{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.calcs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+.calcs button{border:1px solid var(--line);background:var(--paper);border-radius:9px;min-height:44px;padding:4px 12px;cursor:pointer;font-size:13.5px}
+.calcs button[aria-pressed=true]{border-color:var(--acc);background:var(--acc2);color:var(--acc);font-weight:600}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:26px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;margin-top:12px}
+.drop span{color:var(--mute);font-size:13px}
+body.dragging .drop,body.dragging #form{outline:3px dashed var(--acc);outline-offset:-6px}
+.docs{display:flex;flex-direction:column;gap:6px}
+.doc{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13.5px}
+.doc>div{flex:1}.doc small{display:block;color:var(--mute);font-size:12px;overflow-wrap:anywhere}
+.pgb{border:1px solid var(--acc);color:var(--acc);background:var(--acc2);border-radius:7px;min-height:30px;padding:0 8px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+th.sec{text-align:left;font-size:12.5px;color:var(--acc);padding:12px 0 4px;border-bottom:1px solid var(--line)}
+small.rf{color:var(--mute);font-weight:400;font-size:11.5px}
+.pv{position:fixed;inset:0;background:rgba(10,14,20,.94);z-index:50;display:flex;flex-direction:column}
+.pv[hidden]{display:none}
+.pv .bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--paper);border-bottom:1px solid var(--line)}
+.pv .bar b{flex:1 1 160px;font-size:14px}
+.pv .bar input{width:56px;min-height:38px;border:1px solid var(--line);border-radius:8px;text-align:center;background:var(--paper)}
+.pv .bar .btn{min-height:38px}
+#pvBody{flex:1;overflow:auto;padding:10px 4px;text-align:center}
+#pvBody canvas{background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4);max-width:none}
+#pvMsg{color:#fff;padding:20px;font-size:15px}#pvMsg a{color:#9cf}
 body.sheet-open{overflow:hidden}
-@media print{body>*:not(.sheet){display:none!important}.sheet{position:static;background:none;padding:0;overflow:visible}.sheet .bar{display:none}.sheet .page{box-shadow:none;max-width:none;padding:0}body.sheet-open{overflow:visible}}
+@media print{body>*:not(.sheet){display:none!important}.pgb{display:none!important}.sheet{position:static;background:none;padding:0;overflow:visible}.sheet .bar{display:none}.sheet .page{box-shadow:none;max-width:none;padding:0}body.sheet-open{overflow:visible}}
 </style>
 </head>
 <body>
@@ -114,6 +136,7 @@ body.sheet-open{overflow:hidden}
   </section>
 </div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Feuille de calcul détaillée"><div class="bar"><button class="btn" id="sheetPrint">Imprimer / PDF</button><button class="btn" id="sheetCopy">Copier le texte</button><button class="btn" id="sheetClose">Fermer</button></div><div class="page" id="sheetBody"></div></div>
+<div class="pv" id="pv" hidden role="dialog" aria-modal="true" aria-label="Liseuse PDF"><div class="bar"><b id="pvTitle"></b><button class="btn" id="pvPrev" aria-label="Page précédente">◀</button><input id="pvPage" inputmode="numeric" aria-label="Page"><span id="pvN"></span><button class="btn" id="pvNext" aria-label="Page suivante">▶</button><button class="btn" id="pvOut" aria-label="Dézoomer">−</button><button class="btn" id="pvIn" aria-label="Zoomer">+</button><button class="btn" id="pvClose">Fermer</button></div><div id="pvBody"><div id="pvMsg"></div><canvas id="pvCanvas"></canvas></div></div>
 <div class="toast" id="toast" role="status"></div>
 <script>
 {
@@ -192,6 +215,7 @@ CASES.forEach(c => { ST[c.id] = Object.assign(defState(c), ST[c.id] || {}); });
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ST, fu, cur })); } catch (e) {} };
 const caseOf = id => CASES.find(c => c.id === id);
 const $ = id => document.getElementById(id);
+const esc = x => String(x ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const nf = (v, d = 3) => { if (!isFinite(v)) return "—"; const a = Math.abs(v); const s = a >= 1e5 ? v.toFixed(0) : a >= 100 ? v.toFixed(1) : a >= 1 ? v.toPrecision(d + 1) : a > 0 ? v.toPrecision(d) : "0"; return (+s).toLocaleString("fr-FR", { maximumFractionDigits: 4 }); };
 const fuName = () => ({ 1: "N", 10: "daN", 1000: "kN" }[fu]);
 let tt; const toast = m => { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2200); };
@@ -359,7 +383,8 @@ const UNK_LAB = { qs: "Charge répartie maxi (q₁ et q₂ ensemble)", F: "Effor
 
 /* ================= rendu du formulaire ================= */
 function renderCases() {
-  $("cases").innerHTML = CASES.map(c => `<button data-c="${c.id}" aria-current="${c.id === cur}"><svg viewBox="0 0 24 24" aria-hidden="true">${c.ico}</svg><span>${c.n}<small>${c.sub}</small></span></button>`).join("");
+  $("cases").innerHTML = CASES.map(c => `<button data-c="${c.id}" aria-current="${c.id === cur}"><svg viewBox="0 0 24 24" aria-hidden="true">${c.ico}</svg><span>${c.n}<small>${c.sub}</small></span></button>`).join("")
+    + `<button data-c="ref" aria-current="${cur === "ref"}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>${REF.pack ? esc(REF.pack.short || "Référentiel") : "Code de calcul"}<small>${REF.pack ? esc(REF.pack.tagline || "référentiel chargé") : "glisse ton référentiel"}</small></span></button>`;
 }
 function fldHTML(id, lab, unit, val, unk, extra) {
   const u = unit === "F" ? fuName() : unit === "q" ? fuName() + "/m" : unit;
@@ -712,10 +737,387 @@ function sheetText() {
   return [`FEUILLE DE CALCUL · ${c.n}`, ""].concat(explain(c, v, r, unk, solved).map((s, i) => `${i + 1}. ${s.t}` + (s.txt ? `\n   ${strip(s.txt)}` : "") + (s.f ? `\n   ${strip(s.f)}` : "") + (s.sub ? `\n   ${s.f ? "= " : ""}${strip(s.sub)}` : "") + (s.res ? `\n   = ${strip(s.res)}` : ""))).join("\n\n");
 }
 
+/* ================= RÉFÉRENTIELS EXTERNES (ex. CODAP) =================
+   Le code de l'appli ne contient AUCUNE règle d'un code de construction :
+   formules, conditions et renvois sont lus dans un fichier référentiel que
+   l'utilisateur glisse dans l'appli, et qui reste stocké sur son appareil. */
+
+/* ---------- moteur d'expressions (sans eval) ---------- */
+const Expr = (() => {
+  function tokenize(s) {
+    const t = [], re = /\s*(?:(\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)|([A-Za-z_][A-Za-z_0-9]*)|(<=|>=|==|!=|&&|\|\||[-+*/^(),<>!]))/y;
+    let m, i = 0;
+    while (i < s.length) {
+      re.lastIndex = i; m = re.exec(s);
+      if (!m) { if (/^\s*$/.test(s.slice(i))) break; throw new Error("Expression illisible : " + s.slice(i, i + 12)); }
+      i = re.lastIndex;
+      if (m[1]) t.push({ k: "n", v: +m[1] }); else if (m[2]) t.push({ k: "id", v: m[2] }); else t.push({ k: "op", v: m[3] });
+    }
+    return t;
+  }
+  function parse(s) {
+    const t = tokenize(s); let p = 0;
+    const peek = () => t[p], eat = v => { if (t[p] && t[p].v === v) { p++; return true; } return false; };
+    const need = v => { if (!eat(v)) throw new Error(`« ${v} » attendu dans : ${s}`); };
+    const bin = (next, ops) => () => { let a = next(); while (t[p] && t[p].k === "op" && ops.includes(t[p].v)) { const o = t[p++].v; a = { k: "b", o, a, b: next() }; } return a; };
+    const primary = () => {
+      const x = t[p++]; if (!x) throw new Error("Expression incomplète : " + s);
+      if (x.k === "n") return { k: "n", v: x.v };
+      if (x.k === "id") { if (eat("(")) { const args = []; if (!eat(")")) { do args.push(or()); while (eat(",")); need(")"); } return { k: "c", f: x.v, args }; } return { k: "v", n: x.v }; }
+      if (x.v === "(") { const e = or(); need(")"); return { k: "p", e }; }
+      throw new Error("Symbole inattendu « " + x.v + " » dans : " + s);
+    };
+    const unary = () => { if (eat("-")) return { k: "u", o: "-", a: unary() }; if (eat("!")) return { k: "u", o: "!", a: unary() }; return pow(); };
+    const pow = () => { const a = primary(); if (eat("^")) return { k: "b", o: "^", a, b: unary() }; return a; };
+    const mul = bin(unary, ["*", "/"]), add = bin(mul, ["+", "-"]), cmp = bin(add, ["<", "<=", ">", ">=", "==", "!="]), and = bin(cmp, ["&&"]), or = bin(and, ["||"]);
+    const e = or(); if (p < t.length) throw new Error("Fin d'expression inattendue dans : " + s); return e;
+  }
+  const BI = { min: Math.min, max: Math.max, sqrt: Math.sqrt, abs: Math.abs, log10: Math.log10, ln: Math.log, exp: Math.exp, pow: Math.pow, floor: Math.floor, ceil: Math.ceil, round: Math.round, pi: () => Math.PI, sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+    nextin: (x, ...l) => { const v = l.filter(y => y >= x - 1e-9).sort((a, b) => a - b); return v.length ? v[0] : Math.max(...l); } };
+  function ev(n, env) {
+    switch (n.k) {
+      case "n": return n.v;
+      case "p": return ev(n.e, env);
+      case "v": { if (n.n in env.v) return env.v[n.n]; if (n.n === "pi") return Math.PI; throw new Error("Valeur inconnue : " + n.n); }
+      case "u": { const a = ev(n.a, env); return n.o === "-" ? -a : (a ? 0 : 1); }
+      case "b": {
+        if (n.o === "&&") return ev(n.a, env) && ev(n.b, env) ? 1 : 0;
+        if (n.o === "||") return ev(n.a, env) || ev(n.b, env) ? 1 : 0;
+        const a = ev(n.a, env), b = ev(n.b, env);
+        switch (n.o) { case "+": return a + b; case "-": return a - b; case "*": return a * b; case "/": return a / b; case "^": return Math.pow(a, b);
+          case "<": return +(a < b); case "<=": return +(a <= b + 1e-12); case ">": return +(a > b); case ">=": return +(a >= b - 1e-12); case "==": return +(Math.abs(a - b) < 1e-12); case "!=": return +(Math.abs(a - b) >= 1e-12); }
+      }
+      case "c": {
+        if (n.f === "if") return ev(n.args[0], env) ? ev(n.args[1], env) : ev(n.args[2], env);
+        const uf = env.f[n.f];
+        if (uf) { const v = Object.create(env.v); uf.args.forEach((a, i) => v[a] = ev(n.args[i], env)); return ev(uf.ast, { v, f: env.f }); }
+        if (BI[n.f]) return BI[n.f](...n.args.map(a => ev(a, env)));
+        throw new Error("Fonction inconnue : " + n.f);
+      }
+    }
+  }
+  const PREC = { "||": 1, "&&": 2, "<": 3, "<=": 3, ">": 3, ">=": 3, "==": 3, "!=": 3, "+": 4, "-": 4, "*": 5, "/": 5, "^": 6 };
+  const SYM = { "*": " × ", "/": " / ", "+": " + ", "-": " − ", "^": "^", "<": " < ", "<=": " ≤ ", ">": " > ", ">=": " ≥ ", "==": " = ", "!=": " ≠ ", "&&": " et ", "||": " ou " };
+  // affiche l'expression avec les valeurs numériques à la place des symboles
+  function show(n, env, fmt, outer = 0) {
+    switch (n.k) {
+      case "n": return fmt(n.v);
+      case "p": return "(" + show(n.e, env, fmt) + ")";
+      case "v": return n.n in env.v ? fmt(env.v[n.n]) : n.n;
+      case "u": return (n.o === "-" ? "−" : "non ") + show(n.a, env, fmt, 7);
+      case "b": { const pr = PREC[n.o], s = show(n.a, env, fmt, pr) + SYM[n.o] + show(n.b, env, fmt, pr + (n.o === "^" ? 0 : 0.5)); return pr < outer ? "(" + s + ")" : s; }
+      case "c": {
+        if (n.f === "if") return show(ev(n.args[0], env) ? n.args[1] : n.args[2], env, fmt, outer);
+        if (env.f[n.f]) return `${n.f}(${n.args.map(a => fmt(ev(a, env))).join(" ; ")}) = ${fmt(ev(n, env))}`;
+        const nm = { min: "MIN", max: "MAX", sqrt: "√", log10: "log", ln: "ln", abs: "|·|" }[n.f] || n.f;
+        return nm + "(" + n.args.map(a => show(a, env, fmt)).join(" ; ") + ")";
+      }
+    }
+  }
+  return { parse, ev, show };
+})();
+
+/* ---------- état du référentiel ---------- */
+const REF = { pack: null, pdfs: {}, err: "", res: null };
+const refDB = (mode, fn) => new Promise((res, rej) => {
+  const r = indexedDB.open("rdm-atelier", 1);
+  r.onupgradeneeded = () => r.result.createObjectStore("kv");
+  r.onsuccess = () => { const tx = r.result.transaction("kv", mode); const q = fn(tx.objectStore("kv")); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); };
+  r.onerror = () => rej(r.error);
+});
+const refGet = k => refDB("readonly", s => s.get(k)).catch(() => null);
+const refPut = (k, v) => refDB("readwrite", s => s.put(v, k)).catch(() => toast("Stockage local indisponible : à recharger à chaque visite"));
+const refDel = k => refDB("readwrite", s => s.delete(k)).catch(() => {});
+const refKeys = () => refDB("readonly", s => s.getAllKeys()).catch(() => []);
+
+function refCompile(pack) {
+  if (!pack || pack.format !== "rdm-atelier-referentiel/1" || !Array.isArray(pack.calcs)) throw new Error("Ce fichier n'est pas un référentiel RDM Atelier.");
+  const blocks = pack.blocks || {};
+  const expand = (list, key) => (list || []).flatMap(x => x.block ? expand(blocks[x.block] && blocks[x.block][key], key) : [x]);
+  pack.calcs.forEach(c => {
+    c._inputs = expand(c.inputs, "inputs");
+    c._steps = expand(c.steps, "steps");
+    c._checks = expand(c.checks, "checks");
+    c._fns = {};
+    c._steps.forEach(s => {
+      if (s.fn) c._fns[s.fn] = { args: s.args, ast: Expr.parse(s.expr) };
+      else { if (s.expr) s._ast = Expr.parse(s.expr); if (s.when) s._when = Expr.parse(s.when); if (s.solve) { s._eq = Expr.parse(s.solve.eq); s._lo = Expr.parse(String(s.solve.lo)); s._hi = Expr.parse(String(s.solve.hi)); } }
+    });
+    c._inputs.forEach(i => { if (i.show) i._show = Expr.parse(i.show); });
+    c._checks.forEach(k => { k._ast = Expr.parse(k.expr); if (k.when) k._when = Expr.parse(k.when); });
+    c._vd = c.verdicts || (c.verdict ? [c.verdict] : []);
+    c._vd.forEach(d => { d._have = Expr.parse(d.have); d._need = Expr.parse(d.need); });
+    if (!c.verdict && c._vd.length) c.verdict = c._vd[0];
+  });
+  return pack;
+}
+function refState() {
+  ST.ref = ST.ref || { calc: null, vals: {}, unk: {} };
+  const p = REF.pack; if (!p) return ST.ref;
+  if (!p.calcs.some(c => c.id === ST.ref.calc)) ST.ref.calc = p.calcs[0].id;
+  p.calcs.forEach(c => { const v = ST.ref.vals[c.id] = ST.ref.vals[c.id] || {}; c._inputs.forEach(i => { if (v[i.id] === undefined) v[i.id] = i.def; }); });
+  return ST.ref;
+}
+const refCalc = () => REF.pack && REF.pack.calcs.find(c => c.id === refState().calc);
+
+/* évaluation complète d'un calcul */
+function refEval(c, vals) {
+  const env = { v: {}, f: c._fns };
+  c._inputs.forEach(i => env.v[i.id] = +vals[i.id]);
+  const steps = [];
+  for (const s of c._steps) {
+    if (s.fn) continue;
+    if (s._when && !Expr.ev(s._when, env)) continue;
+    let val;
+    if (s.solve) {
+      const x = s.solve.var, lo = Expr.ev(s._lo, env), hi = Expr.ev(s._hi, env);
+      const g = y => { const e2 = { v: Object.create(env.v), f: env.f }; e2.v[x] = y; return Expr.ev(s._eq, e2); };
+      let a = lo, b = hi, fa = g(a), fb = g(b), ok = isFinite(fa) && isFinite(fb) && Math.sign(fa) !== Math.sign(fb);
+      if (!ok) { const n = 80; for (let k = 1; k <= n; k++) { const y = lo * Math.pow(hi / lo, k / n), fy = g(y); if (isFinite(fy) && isFinite(fa) && Math.sign(fy) !== Math.sign(fa)) { b = y; fb = fy; ok = true; break; } a = y; fa = fy; } }
+      if (!ok) throw new Error(`${s.label} : pas de solution trouvée entre ${nf(lo)} et ${nf(hi)}.`);
+      for (let k = 0; k < 100; k++) { const m = (a + b) / 2, fm = g(m); if (Math.sign(fm) === Math.sign(fa)) { a = m; fa = fm; } else b = m; }
+      val = (a + b) / 2;
+    } else val = Expr.ev(s._ast, env);
+    env.v[s.id] = val;
+    const sub = s.solve ? "" : Expr.show(s._ast, env, x => nf(x, 4));
+    steps.push({ s, val, sub: sub === nf(val, 4) ? "" : sub });
+  }
+  const checks = c._checks.filter(k => !k._when || Expr.ev(k._when, env)).map(k => ({ k, ok: !!Expr.ev(k._ast, env), sub: Expr.show(k._ast, env, x => nf(x, 4)) }));
+  let util = NaN, have = NaN, need = NaN;
+  const vlist = c._vd.map(d => { const h = Expr.ev(d._have, env), n = Expr.ev(d._need, env); return { d, have: h, need: n, util: n / h }; });
+  let vd = c.verdict || {}, w = vlist[0];
+  vlist.forEach(x => { if (!(x.util <= w.util)) w = x; });
+  if (w) { have = w.have; need = w.need; util = w.util; vd = w.d; }
+  return { env, steps, checks, util, have, need, vd, vlist };
+}
+function refSolve(c, vals, key) {
+  const f = x => { try { const r = refEval(c, { ...vals, [key]: x }); return 1 - r.util; } catch (e) { return NaN; } };
+  const x0 = Math.max(Math.abs(+vals[key]) || 1, 1e-3);
+  let lo = null, hi = null, prev = null, px = null;
+  for (let k = -48; k <= 48; k++) { const x = x0 * Math.pow(10, k / 12), y = f(x); if (!isFinite(y)) { prev = null; continue; } if (prev !== null && Math.sign(y) !== Math.sign(prev)) { lo = px; hi = x; break; } prev = y; px = x; }
+  if (lo === null) return null;
+  let a = lo, b = hi, fa = f(a);
+  for (let i = 0; i < 80; i++) { const m = (a + b) / 2, fm = f(m); if (Math.sign(fm) === Math.sign(fa)) { a = m; fa = fm; } else b = m; }
+  return (a + b) / 2;
+}
+
+/* ---------- import des fichiers ---------- */
+async function refImport(files) {
+  let nP = 0, nJ = 0;
+  for (const f of files) {
+    const name = (f.name || "").toLowerCase();
+    if (name.endsWith(".json")) {
+      try { const p = refCompile(JSON.parse(await f.text())); const raw = JSON.parse(await f.text()); REF.pack = p; await refPut("pack", raw); nJ++; }
+      catch (e) { toast(e.message || "Référentiel illisible"); }
+    } else if (name.endsWith(".pdf")) {
+      const key = refMatchPdf(name) || "autre:" + f.name;
+      REF.pdfs[key] = { blob: f, name: f.name };
+      await refPut("pdf:" + key, { blob: f, name: f.name }); nP++;
+    }
+  }
+  if (nJ || nP) toast(`${nJ ? "Référentiel chargé" : ""}${nJ && nP ? " · " : ""}${nP ? nP + " PDF ajouté" + (nP > 1 ? "s" : "") : ""}`);
+  if (nJ) { refRematch(); refState(); renderCases(); }
+  if (cur === "ref") { renderRefForm(); runRef(); }
+}
+function refMatchPdf(name) {
+  if (!REF.pack || !REF.pack.pdfs) return null;
+  const norm = x => String(x).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const n = norm(name), d = REF.pack.pdfs.find(p => (p.match || []).some(m => n.includes(norm(m))));
+  return d ? d.key : null;
+}
+function refRematch() { // reclasse les PDF « autres » quand un référentiel arrive
+  for (const k of Object.keys(REF.pdfs)) if (k.startsWith("autre:")) { const key = refMatchPdf(REF.pdfs[k].name.toLowerCase()); if (key) { REF.pdfs[key] = REF.pdfs[k]; delete REF.pdfs[k]; refPut("pdf:" + key, REF.pdfs[key]); refDel("pdf:" + k); } }
+}
+async function refLoadStored() {
+  const raw = await refGet("pack");
+  if (raw) { try { REF.pack = refCompile(raw); } catch (e) { REF.err = e.message; } }
+  for (const k of await refKeys()) if (String(k).startsWith("pdf:")) { const v = await refGet(k); if (v) REF.pdfs[String(k).slice(4)] = v; }
+}
+
+/* ---------- liseuse PDF ---------- */
+const PDFJS_ROOT = "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.2.108/", PDFJS = PDFJS_ROOT + "legacy/build/";
+let pdfLib = null;
+async function getPdfLib() { // chargée seulement à la première ouverture d'un PDF, puis gardée hors ligne
+  if (pdfLib) return pdfLib;
+  const lib = await import(PDFJS + "pdf.min.mjs");
+  lib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
+  return pdfLib = lib;
+}
+const VIEW = { doc: null, key: null, page: 1, zoom: 1 };
+async function openPdf(key, page) {
+  const d = REF.pdfs[key];
+  $("pv").hidden = false; document.body.classList.add("sheet-open");
+  const title = (REF.pack && (REF.pack.pdfs || []).find(p => p.key === key) || {}).title || (d && d.name) || key;
+  $("pvTitle").textContent = title;
+  if (!d) { $("pvMsg").innerHTML = `Ce PDF n'est pas encore chargé. Glisse-le dans l'appli (onglet ${esc(REF.pack ? REF.pack.short : "")}, rubrique Documents).`; $("pvCanvas").hidden = true; return; }
+  $("pvCanvas").hidden = false; $("pvMsg").textContent = "Ouverture…";
+  try {
+    const lib = await getPdfLib();
+    if (VIEW.key !== key) { VIEW.doc = await lib.getDocument({ data: new Uint8Array(await d.blob.arrayBuffer()), wasmUrl: PDFJS_ROOT + "wasm/", iccUrl: PDFJS_ROOT + "iccs/", standardFontDataUrl: PDFJS_ROOT + "standard_fonts/", cMapUrl: PDFJS_ROOT + "cmaps/" }).promise; VIEW.key = key; }
+    VIEW.page = Math.min(Math.max(1, page || 1), VIEW.doc.numPages);
+    await renderPdfPage();
+  } catch (e) {
+    const u = URL.createObjectURL(d.blob);
+    $("pvCanvas").hidden = true;
+    $("pvMsg").innerHTML = `La liseuse n'a pas pu se charger (il faut une connexion la première fois). <a href="${u}#page=${page || 1}" target="_blank" rel="noopener">Ouvrir le PDF dans le navigateur, page ${page || 1}</a>.`;
+  }
+}
+async function renderPdfPage() {
+  const pg = await VIEW.doc.getPage(VIEW.page), box = $("pvBody"), w = Math.min(box.clientWidth - 8, 1100) * VIEW.zoom;
+  const vp0 = pg.getViewport({ scale: 1 }), dpr = Math.min(2, devicePixelRatio || 1), vp = pg.getViewport({ scale: w / vp0.width * dpr });
+  const cv = $("pvCanvas"); cv.width = vp.width; cv.height = vp.height; cv.style.width = vp.width / dpr + "px";
+  await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+  $("pvMsg").textContent = ""; $("pvPage").value = VIEW.page; $("pvN").textContent = "/ " + VIEW.doc.numPages;
+}
+function closePdf() { $("pv").hidden = true; if ($("sheet").hidden) document.body.classList.remove("sheet-open"); }
+
+/* ---------- interface de l'onglet ---------- */
+function refFld(c, i, v, unk) {
+  if (i._show && !Expr.ev(i._show, { v: Object.fromEntries(c._inputs.map(x => [x.id, +v[x.id]])), f: {} })) return "";
+  if (i.type === "select") return `<label class="fld${i.full ? " full" : ""}">${esc(i.label)}<span class="in"><select data-r="${esc(i.id)}">${i.options.map(([t, val]) => `<option value="${val}" ${+val === +v[i.id] ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></span></label>`;
+  return `<label class="fld${unk ? " unk" : ""}">${esc(i.label)}<span class="in"><input id="r-${esc(i.id)}" data-r="${esc(i.id)}" inputmode="decimal" value="${unk ? "à trouver" : nf(+v[i.id], 5).replace(/\s/g, "")}" ${unk ? "readonly" : ""}>${i.unit ? `<span class="u">${esc(i.unit)}</span>` : ""}</span></label>`;
+}
+const fv = (s, v, d) => { const k = String(Math.round(v)); return s.labels && k in s.labels ? esc(s.labels[k]) : nf(v, d) + (s.unit ? " " + esc(s.unit) : ""); };
+const pageBtn = pg => pg && pg.pdf ? `<button class="pgb" data-pdf="${esc(pg.pdf)}" data-p="${+pg.p}">p. ${+pg.p}</button>` : "";
+function renderRefForm() {
+  const P = REF.pack;
+  if (!P) {
+    $("form").innerHTML = `<h2>Code de calcul</h2><p class="lead">Cet onglet applique un code de construction (CODAP ou autre) à partir d'un fichier référentiel que tu fournis. Rien de ce code n'est contenu dans l'appli : le référentiel et tes PDF restent sur cet appareil.</p>
+      ${REF.err ? `<p class="note" style="color:var(--bad)">${esc(REF.err)}</p>` : ""}
+      <div class="drop" id="refDrop"><b>Glisse ici ton référentiel (.json) et tes PDF</b><span>ou</span><label class="btn">Choisir les fichiers<input type="file" id="refFiles" multiple accept=".json,.pdf,application/json,application/pdf" hidden></label></div>`;
+    return;
+  }
+  const st = refState(), c = refCalc(), v = st.vals[c.id], unk = st.unk[c.id] || "none";
+  let h = `<h2>${esc(P.short || "Référentiel")} · ${esc(c.title)}</h2><p class="lead">${esc(P.name || "")}${c.ref ? " · " + esc(c.ref) : ""} ${pageBtn(c.page)}</p>`;
+  h += `<div class="calcs" role="group" aria-label="Calculs du référentiel">${P.calcs.map(x => `<button data-calc="${esc(x.id)}" aria-pressed="${x.id === c.id}">${esc(x.title)}</button>`).join("")}</div>`;
+  if (c.unknowns && c.unknowns.length) h += `<div class="seek"><label for="runk">Ce que je cherche</label><select id="runk"><option value="none">${esc(c.verdict ? "Rien : je vérifie avec mes valeurs" : "Calcul direct")}</option>${c.unknowns.map(u => { const i = c._inputs.find(x => x.id === u); return i ? `<option value="${esc(u)}" ${u === unk ? "selected" : ""}>${esc(i.label)} ${c.verdict ? "(limite)" : ""}</option>` : ""; }).join("")}</select></div>`;
+  let grp = null;
+  h += `<div class="fields">`;
+  for (const i of c._inputs) {
+    if (i.group && i.group !== grp) { grp = i.group; h += `</div><h3>${esc(grp)}</h3><div class="fields">`; }
+    h += refFld(c, i, v, unk === i.id);
+  }
+  h += `</div><h3>Documents</h3><div class="docs">${(P.pdfs || []).map(d => `<div class="doc"><span>${REF.pdfs[d.key] ? "✓" : "–"}</span><div>${esc(d.title)}<small>${REF.pdfs[d.key] ? esc(REF.pdfs[d.key].name) : "non chargé"}</small></div>${REF.pdfs[d.key] ? `<button class="pgb" data-pdf="${esc(d.key)}" data-p="1">ouvrir</button>` : ""}</div>`).join("")}</div>
+    <div class="btns"><label class="btn">Ajouter des PDF / un référentiel<input type="file" id="refFiles" multiple accept=".json,.pdf,application/json,application/pdf" hidden></label><button class="btn" id="refClear">Retirer le référentiel</button></div>
+    <p class="note">${esc(P.licence || "Référentiel personnel, à ne pas diffuser.")}</p>`;
+  $("form").innerHTML = h;
+}
+function runRef() {
+  const P = REF.pack;
+  if (!P) { $("verdict").innerHTML = `<div class="verdict v1"><div><div class="t">Aucun référentiel chargé</div><div class="d">Glisse ton fichier référentiel dans l'appli pour activer les calculs.</div></div></div>`; $("fig").innerHTML = ""; $("gauge").innerHTML = ""; $("res").innerHTML = ""; $("notes").innerHTML = ""; REF.res = null; return; }
+  const st = refState(), c = refCalc(), v = st.vals[c.id], unk = st.unk[c.id] || "none";
+  let solved = null, r;
+  try {
+    if (unk !== "none") { solved = refSolve(c, v, unk); if (solved !== null) { v[unk] = solved; const e = $("r-" + unk); if (e) e.value = nf(solved, 5).replace(/\s/g, ""); } }
+    r = refEval(c, v);
+  } catch (e) { $("verdict").innerHTML = `<div class="verdict v2"><div><div class="t">Calcul impossible</div><div class="d">${esc(e.message)}</div></div></div>`; $("res").innerHTML = ""; $("fig").innerHTML = ""; $("gauge").innerHTML = ""; $("notes").innerHTML = ""; REF.res = null; return; }
+  REF.res = { c, v, r, unk, solved };
+  const bad = r.checks.filter(x => !x.ok);
+  let head;
+  if (unk !== "none") {
+    const i = c._inputs.find(x => x.id === unk);
+    head = solved === null ? `<div class="verdict v2"><div><div class="t">Pas de solution</div><div class="d">Aucune valeur de « ${esc(i.label)} » ne satisfait la règle avec ces données.</div></div></div>`
+      : `<div class="verdict v${bad.length ? 1 : 0}"><b>${nf(solved)} ${esc(i.unit || "")}</b><div><div class="t">${esc(i.label)} limite</div><div class="d">${esc(r.vd.label || "")}${bad.length ? " · attention : " + bad.length + " condition(s) d'application non remplie(s)" : ""}</div></div></div>`;
+  } else if (c.verdict) {
+    const lv = bad.length ? 2 : r.util > 1 + 1e-9 ? 2 : r.util > 0.9 ? 1 : 0;
+    head = `<div class="verdict v${lv}"><b>${isFinite(r.util) ? Math.round(r.util * 100) + " %" : "—"}</b><div><div class="t">${bad.length ? "Hors domaine d'application" : r.util > 1 + 1e-9 ? "Non conforme" : "Conforme"}</div><div class="d">${esc(r.vd.label)} : ${nf(r.have)} ${esc(r.vd.unit || "")} pour ${nf(r.need)} ${esc(r.vd.unit || "")} demandés.</div></div></div>`;
+  } else head = `<div class="verdict v0"><div><div class="t">Calcul effectué</div></div></div>`;
+  $("verdict").innerHTML = head;
+  $("fig").innerHTML = refSketch(c, r);
+  $("gauge").innerHTML = "";
+  $("res").innerHTML = (r.vlist.length > 1 ? r.vlist.map(x => `<tr class="em"><td>${esc(x.d.label)}</td><td class="n" style="color:${x.util > 1 + 1e-9 ? "var(--bad)" : x.util > 0.9 ? "var(--warn)" : "var(--ok)"}">${Math.round(x.util * 100)} %</td></tr>`).join("") : "")
+    + r.steps.filter(x => x.s.main || x.s.result || x.s.section).map(x => (x.s.section ? `<tr><th colspan="2" class="sec">${esc(x.s.section)}</th></tr>` : "") + (x.s.main || x.s.result ? `<tr class="${x.s.main ? "em" : ""}"><td>${esc(x.s.label)}${x.s.ref ? ` <small class="rf">${esc(x.s.ref)}</small>` : ""}</td><td class="n">${fv(x.s, x.val)}</td></tr>` : "")).join("")
+    + r.checks.map(x => `<tr><td>${esc(x.k.label)}${x.k.ref ? ` <small class="rf">${esc(x.k.ref)}</small>` : ""}</td><td class="n" style="color:${x.ok ? "var(--ok)" : "var(--bad)"}">${x.ok ? "respectée" : "NON respectée"}</td></tr>`).join("");
+  $("notes").innerHTML = (c.notes || []).map(n => `<p class="note">${esc(n)}</p>`).join("");
+  save();
+}
+/* croquis génériques (aucune donnée du code) */
+function refSketch(c, r) {
+  const V = r.env.v, kind = c.sketch || "", lvlCol = isFinite(r.util) ? (r.util > 1 ? "var(--bad)" : r.util > 0.9 ? "var(--warn)" : "var(--ok)") : "var(--acc)";
+  let s = "";
+  if (kind === "virole") {
+    const e = V[c.sketchE || "eu"] || 0, D = V.Di || 1000, t = Math.max(6, Math.min(40, e / D * 1400));
+    s += `<rect x="120" y="80" width="400" height="${t}" fill="${lvlCol}" opacity=".45" stroke="${lvlCol}"/><rect x="120" y="${260 - t}" width="400" height="${t}" fill="${lvlCol}" opacity=".45" stroke="${lvlCol}"/>`;
+    s += `<line x1="100" y1="170" x2="540" y2="170" stroke="var(--mute)" stroke-dasharray="8 4 2 4"/>`;
+    for (let k = 0; k < 7; k++) { const x = 160 + k * 55; s += arrow(x, 150, x, 92 + t, "var(--acc)", 2) + arrow(x, 190, x, 248 - t, "var(--acc)", 2); }
+    s += txt(320, 165, `P = ${nf(V.P || 0)} MPa`, { w: 700 }) + txt(320, 60, `${c.title}`, { s: 13, c: "var(--mute)" }) + txt(560, 90 + t / 2, `eu = ${nf(e)} mm`, { a: "start", s: 13 }) + `<line x1="580" y1="${80 + t}" x2="580" y2="${260 - t}" stroke="var(--mute)"/>` + txt(590, 175, `Di ${nf(D)}`, { a: "start", s: 13, c: "var(--mute)" });
+  } else if (kind === "fond") {
+    const e = V[c.sketchE || "eu"] || 0, t = Math.max(6, Math.min(30, e / (V.Di || 1000) * 1400));
+    s += `<path d="M110 250 V200 Q110 90 320 80 Q530 90 530 200 V250" fill="none" stroke="${lvlCol}" stroke-width="${t}" opacity=".55"/>`;
+    for (let k = 0; k < 6; k++) { const a = Math.PI * (0.15 + k * 0.14), x = 320 - Math.cos(a) * 170, y = 215 - Math.sin(a) * 110; s += arrow(320 - Math.cos(a) * 60, 215 - Math.sin(a) * 40, x, y, "var(--acc)", 2); }
+    s += txt(320, 238, `P = ${nf(V.P || 0)} MPa`, { w: 700 }) + txt(320, 40, c.title, { s: 13, c: "var(--mute)" }) + txt(560, 210, `eu = ${nf(e)} mm`, { a: "start", s: 13 });
+    if (V.R) s += txt(320, 300, `R = ${nf(V.R)} mm · r = ${nf(V.r || 0)} mm · Di = ${nf(V.Di || 0)} mm`, { s: 13, c: "var(--mute)" });
+  } else if (kind === "cuve") {
+    const m = c.sketchMap || {}, g = k => +V[m[k] || k] || 0;
+    const ori = g("ori"), Di = g("Di") || 1000, L = g("L"), hf = g("hf"), hl = Math.max(0, g("hl")), Ht = L + 2 * hf;
+    const vert = ori === 0, sc = vert ? Math.min(230 / Ht, 260 / Di) : Math.min(400 / Ht, 200 / Di);
+    const sw = Math.max(3, Math.min(10, (g("en") || 5) * sc * 3));
+    let path, liq, x0, y0;
+    if (vert) {
+      const rx = Di / 2 * sc, ry = hf * sc; x0 = 300; y0 = 40;
+      const ya = y0 + ry, yb = y0 + (hf + L) * sc, yBot = y0 + Ht * sc;
+      path = `M${x0 - rx} ${ya} A${rx} ${ry} 0 0 1 ${x0 + rx} ${ya} V${yb} A${rx} ${ry} 0 0 1 ${x0 - rx} ${yb} Z`;
+      liq = `<rect x="${x0 - rx - 5}" y="${yBot - hl * sc}" width="${2 * rx + 10}" height="${hl * sc + 5}" fill="var(--acc)" opacity=".22" clip-path="url(#cv)"/>`;
+      s += txt(x0, yBot + 22, `Di ${nf(Di)} mm`, { s: 13, c: "var(--mute)" }) + `<line x1="${x0 + rx + 30}" y1="${ya}" x2="${x0 + rx + 30}" y2="${yb}" stroke="var(--mute)"/>` + txt(x0 + rx + 38, (ya + yb) / 2, `L ${nf(L)} mm`, { a: "start", s: 13, c: "var(--mute)" });
+    } else {
+      const rx = hf * sc, ry = Di / 2 * sc; y0 = 165; x0 = 375 - Ht * sc / 2;
+      const xa = x0 + rx, xb = x0 + (hf + L) * sc, yTop = y0 - ry, yBot = y0 + ry;
+      path = `M${xa} ${yTop} H${xb} A${rx} ${ry} 0 0 1 ${xb} ${yBot} H${xa} A${rx} ${ry} 0 0 1 ${xa} ${yTop} Z`;
+      liq = `<rect x="${x0 - 5}" y="${yBot - hl * sc}" width="${Ht * sc + 10}" height="${hl * sc + 5}" fill="var(--acc)" opacity=".22" clip-path="url(#cv)"/>`;
+      s += txt(375, yBot + 24, `L ${nf(L)} mm · Di ${nf(Di)} mm`, { s: 13, c: "var(--mute)" });
+    }
+    s = `<defs><clipPath id="cv"><path d="${path}"/></clipPath></defs>` + liq + `<path d="${path}" fill="none" stroke="${lvlCol}" stroke-width="${sw}" stroke-linejoin="round"/>` + s;
+    (c.sketchTags || []).forEach((t, i) => { const v = V[t[1]]; if (v !== undefined) s += txt(14, 26 + i * 20, `${esc(t[0])} ${nf(v)} ${esc(t[2] || "")}`, { a: "start", s: 13 }); });
+  } else return "";
+  return `<svg viewBox="0 0 640 320" role="img" aria-label="Croquis ${esc(c.title)}">${s}</svg>`;
+}
+function refSheet() {
+  const R = REF.res; if (!R) return;
+  const { c, r, unk, solved } = R, P = REF.pack;
+  const lv = r.checks.some(x => !x.ok) || r.util > 1 + 1e-9 ? 2 : 0;
+  $("sheetBody").innerHTML = `<div class="sh-h"><div><h2>${esc(P.short || "")} · ${esc(c.title)}</h2><p>${esc(P.name || "")} · ${new Date().toLocaleDateString("fr-FR")}</p></div>${c.verdict ? `<div class="sh-v v${lv}">${lv ? "À reprendre" : "Conforme"}<b>${isFinite(r.util) ? Math.round(r.util * 100) + " %" : ""}</b></div>` : ""}</div>
+    <div class="sh-fig">${refSketch(c, r)}</div>
+    <ol class="steps"><li><h4>Données</h4><div class="sb plain">${c._inputs.filter(i => !i._show || Expr.ev(i._show, r.env)).map(i => `${esc(i.label)} : ${i.type === "select" ? esc((i.options.find(o => +o[1] === +r.env.v[i.id]) || [""])[0]) : nf(r.env.v[i.id]) + " " + esc(i.unit || "")}${unk === i.id ? " <b>(valeur trouvée)</b>" : ""}`).join("<br>")}</div></li>
+    ${r.steps.map(x => `<li><h4>${esc(x.s.label)}${x.s.ref ? ` <small class="rf">${esc(x.s.ref)}</small>` : ""} ${pageBtn(x.s.page)}</h4>${x.s.note ? `<p>${esc(x.s.note)}</p>` : ""}${x.s.show ? `<div class="f">${esc(x.s.show)}</div>` : ""}${x.s.solve ? `<div class="sb plain">Résolu par itérations : on cherche la valeur pour laquelle ${esc(x.s.solve.text || "l'équation est vérifiée")}.</div>` : x.sub ? `<div class="sb">= ${esc(x.sub)}</div>` : ""}<div class="rs">= <b>${fv(x.s, x.val, 5)}</b></div></li>`).join("")}
+    ${r.checks.length ? `<li><h4>Conditions d'application</h4>${r.checks.map(x => `<div class="sb">${x.ok ? "✓" : "✗"} ${esc(x.k.label)}${x.k.ref ? " (" + esc(x.k.ref) + ")" : ""} : ${esc(x.sub)}</div>`).join("")}</li>` : ""}
+    ${unk !== "none" && solved !== null ? `<li><h4>Valeur cherchée</h4><p>L'appli fait varier « ${esc(c._inputs.find(i => i.id === unk).label)} » (dichotomie) jusqu'à ce que ${esc(c.verdict ? (r.vd.label || "").toLowerCase() : "la règle")} soit juste respectée.</p><div class="rs">= <b>${nf(solved, 5)} ${esc(c._inputs.find(i => i.id === unk).unit || "")}</b></div></li>` : ""}
+    ${c.verdict ? `<li><h4>Conclusion</h4><div class="sb plain">${esc(r.vd.label)} : ${nf(r.have)} ${esc(r.vd.unit || "")} pour ${nf(r.need)} ${esc(r.vd.unit || "")} demandés (${isFinite(r.util) ? Math.round(r.util * 100) : "—"} %).${r.checks.some(x => !x.ok) ? " Certaines conditions d'application ne sont pas remplies : la règle ne s'applique pas telle quelle." : ""}</div></li>` : ""}
+    </ol><p class="note">Calcul effectué avec le référentiel personnel chargé par l'utilisateur. À valider par le responsable de la conception.</p>`;
+  $("sheet").hidden = false; document.body.classList.add("sheet-open"); $("sheetClose").focus();
+}
+function refSheetText() {
+  const R = REF.res; if (!R) return "";
+  const { c, r } = R;
+  return [`${REF.pack.short} · ${c.title}`, ""].concat(r.steps.map((x, i) => `${i + 1}. ${x.s.label}${x.s.ref ? " (" + x.s.ref + ")" : ""}\n   ${x.s.show || ""}${x.sub ? "\n   = " + x.sub : ""}\n   = ${fv(x.s, x.val, 5).replace(/&[^;]+;/g, "")}`), r.checks.map(x => `${x.ok ? "OK " : "NON"} ${x.k.label} : ${x.sub}`)).join("\n");
+}
+
+/* ---------- évènements de l'onglet ---------- */
+function refInput(e) {
+  const t = e.target, k = t.dataset.r; if (!k || t.tagName !== "INPUT") return false;
+  const x = parseFloat(t.value.replace(",", ".").replace(/\s/g, "")); if (!isFinite(x)) return true;
+  refState().vals[refCalc().id][k] = x; runRef(); return true;
+}
+function refChange(e) {
+  const t = e.target, st = refState();
+  if (t.id === "runk") { st.unk[refCalc().id] = t.value; renderRefForm(); runRef(); return true; }
+  if (t.id === "refFiles") { refImport([...t.files]); return true; }
+  if (t.dataset.r && t.tagName === "SELECT") { st.vals[refCalc().id][t.dataset.r] = +t.value; renderRefForm(); runRef(); return true; }
+  return false;
+}
+async function refClick(e) {
+  const b = e.target.closest("button"); if (!b) return false;
+  if (b.dataset.calc) { refState().calc = b.dataset.calc; renderRefForm(); runRef(); return true; }
+  if (b.dataset.pdf) { openPdf(b.dataset.pdf, +b.dataset.p); return true; }
+  if (b.id === "refClear") { await refDel("pack"); for (const k of Object.keys(REF.pdfs)) await refDel("pdf:" + k); REF.pack = null; REF.pdfs = {}; renderCases(); renderRefForm(); runRef(); toast("Référentiel et PDF retirés de l'appareil"); return true; }
+  return false;
+}
+
 /* ================= évènements ================= */
-function setCase(id) { cur = id; renderCases(); renderForm(); run(); }
+const refresh = () => { if (cur === "ref") { renderRefForm(); runRef(); } else { renderForm(); run(); } };
+function setCase(id) { cur = id; renderCases(); refresh(); save(); }
 $("cases").addEventListener("click", e => { const b = e.target.closest("button[data-c]"); if (b) setCase(b.dataset.c); });
 $("form").addEventListener("input", e => {
+  if (cur === "ref") { refInput(e); return; }
   const t = e.target, k = t.dataset.k; if (!k || t.tagName !== "INPUT") return;
   const x = parseFloat(t.value.replace(",", ".").replace(/\s/g, "")); if (!isFinite(x)) return;
   const v = ST[cur];
@@ -726,6 +1128,7 @@ $("form").addEventListener("input", e => {
   run();
 });
 $("form").addEventListener("change", e => {
+  if (cur === "ref") { refChange(e); return; }
   const t = e.target, v = ST[cur];
   if (t.id === "unk") { v.unk = t.value; renderForm(); run(); return; }
   const k = t.dataset.k; if (!k || t.tagName !== "SELECT") return;
@@ -734,12 +1137,13 @@ $("form").addEventListener("change", e => {
   if (k === "n") v.n = x + 1; else v[k] = x;
   renderForm(); run();
 });
-$("form").addEventListener("click", e => { const b = e.target.closest("button[data-shape]"); if (!b) return; const v = ST[cur]; v.shape = b.dataset.shape; if (v.unk in DIMS) v.unk = "none"; renderForm(); run(); });
+$("form").addEventListener("click", e => { if (cur === "ref") { refClick(e); return; } const b = e.target.closest("button[data-shape]"); if (!b) return; const v = ST[cur]; v.shape = b.dataset.shape; if (v.unk in DIMS) v.unk = "none"; renderForm(); run(); });
 $("form").addEventListener("focusin", e => { const t = e.target; if (t.tagName === "INPUT" && !t.readOnly) setTimeout(() => t.select(), 0); });
 $("fu").value = String(fu);
-$("fu").addEventListener("change", e => { const nfu = +e.target.value; CASES.forEach(c => { const v = ST[c.id]; v.F = v.F * fu / nfu; if (c.id === "flexion") { v.q1 = (v.q1 || 0) * fu / nfu; v.q2 = (v.q2 || 0) * fu / nfu; } }); fu = nfu; renderForm(); run(); });
-$("reset").addEventListener("click", () => { ST[cur] = defState(caseOf(cur)); ST[cur].F = (ST[cur].F || 0) / fu; renderForm(); run(); toast("Valeurs par défaut remises"); });
+$("fu").addEventListener("change", e => { const nfu = +e.target.value; CASES.forEach(c => { const v = ST[c.id]; v.F = v.F * fu / nfu; if (c.id === "flexion") { v.q1 = (v.q1 || 0) * fu / nfu; v.q2 = (v.q2 || 0) * fu / nfu; } }); fu = nfu; refresh(); });
+$("reset").addEventListener("click", () => { if (cur === "ref") { const c = refCalc(); if (c) { ST.ref.vals[c.id] = {}; ST.ref.unk[c.id] = "none"; refresh(); toast("Valeurs par défaut remises"); } return; } ST[cur] = defState(caseOf(cur)); ST[cur].F = (ST[cur].F || 0) / fu; renderForm(); run(); toast("Valeurs par défaut remises"); });
 $("copy").addEventListener("click", async () => {
+  if (cur === "ref") { try { await navigator.clipboard.writeText(refSheetText()); toast("Résumé copié"); } catch (e) { toast("Copie bloquée par le navigateur"); } return; }
   if (!last) return;
   const { c, v, r } = last;
   const lines = [`RDM Atelier · ${c.n}`, `Section : ${SHAPES[v.shape].n} (${SHAPES[v.shape].dims.map(d => d + " = " + nf(v[d]) + " " + DIMS[d][1]).join(", ")})`, `Matériau : ${MATS[v.mat][0]} · Re ${nf(v.Re)} MPa · Rm ${nf(v.Rm)} MPa · s = ${nf(v.s)}`, `Verdict : ${LEVEL_TXT[r.lvl][0]} (${Math.round(r.util * 100)} % de l'admissible)`, ""].concat(r.rows.map(([l, x, u]) => `${l || "  "} : ${nf(x)} ${u}`));
@@ -751,14 +1155,30 @@ const dragTo = e => { const svg = $("fig").querySelector("svg"); if (!svg) retur
 $("fig").addEventListener("pointerdown", e => { if (cur !== "flexion" || !ST.flexion.F || !e.target.closest(".grab, svg")) return; const svg = $("fig").querySelector("svg"), b = svg.getBoundingClientRect(); if ((e.clientY - b.top) / b.height * 340 > 165) return; dragF = true; $("fig").setPointerCapture(e.pointerId); dragTo(e); });
 $("fig").addEventListener("pointermove", e => { if (dragF) dragTo(e); });
 $("fig").addEventListener("pointerup", () => { dragF = false; }); $("fig").addEventListener("pointercancel", () => { dragF = false; });
-$("sheetOpen").addEventListener("click", openSheet);
+$("sheetOpen").addEventListener("click", () => cur === "ref" ? refSheet() : openSheet());
 const closeSheet = () => { $("sheet").hidden = true; document.body.classList.remove("sheet-open"); $("sheetOpen").focus(); };
 $("sheetClose").addEventListener("click", closeSheet);
 $("sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key !== "Escape") return; if (!$("pv").hidden) closePdf(); else if (!$("sheet").hidden) closeSheet(); });
 $("sheetPrint").addEventListener("click", () => { try { window.print(); } catch (e) { toast("Impression bloquée ici : utilise « Copier le texte »"); } });
-$("sheetCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(sheetText()); toast("Feuille copiée"); } catch (e) { toast("Copie bloquée par le navigateur"); } });
-renderCases(); renderForm(); run();
+$("sheetCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(cur === "ref" ? refSheetText() : sheetText()); toast("Feuille copiée"); } catch (e) { toast("Copie bloquée par le navigateur"); } });
+$("sheetBody").addEventListener("click", e => { const b = e.target.closest("button[data-pdf]"); if (b) openPdf(b.dataset.pdf, +b.dataset.p); });
+$("pvClose").addEventListener("click", closePdf);
+const pvGo = d => { if (VIEW.doc) { VIEW.page = Math.min(Math.max(1, VIEW.page + d), VIEW.doc.numPages); renderPdfPage(); } };
+$("pvPrev").addEventListener("click", () => pvGo(-1)); $("pvNext").addEventListener("click", () => pvGo(1));
+$("pvPage").addEventListener("change", e => { if (VIEW.doc) { VIEW.page = 0; pvGo(+e.target.value || 1); } });
+$("pvIn").addEventListener("click", () => { VIEW.zoom = Math.min(3, VIEW.zoom * 1.25); if (VIEW.doc) renderPdfPage(); });
+$("pvOut").addEventListener("click", () => { VIEW.zoom = Math.max(0.5, VIEW.zoom / 1.25); if (VIEW.doc) renderPdfPage(); });
+/* glisser-déposer n'importe où dans l'appli */
+let dragN = 0;
+const hasFiles = e => [...(e.dataTransfer && e.dataTransfer.types || [])].includes("Files");
+document.addEventListener("dragenter", e => { if (!hasFiles(e)) return; e.preventDefault(); dragN++; document.body.classList.add("dragging"); });
+document.addEventListener("dragleave", e => { if (!hasFiles(e)) return; if (--dragN <= 0) { dragN = 0; document.body.classList.remove("dragging"); } });
+document.addEventListener("dragover", e => { if (hasFiles(e)) e.preventDefault(); });
+document.addEventListener("drop", e => { if (!hasFiles(e)) return; e.preventDefault(); dragN = 0; document.body.classList.remove("dragging"); const fs = [...e.dataTransfer.files].filter(f => /\.(json|pdf)$/i.test(f.name)); if (!fs.length) { toast("Glisse un référentiel .json ou des PDF"); return; } if (cur !== "ref") setCase("ref"); refImport(fs); });
+if (cur !== "ref" && !caseOf(cur)) cur = CASES[0].id;
+renderCases(); if (cur !== "ref") { renderForm(); run(); }
+refLoadStored().then(() => { renderCases(); if (cur === "ref") refresh(); });
 if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude|anthropic/.test(location.hostname)) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 </script>
